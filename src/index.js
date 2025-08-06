@@ -30,7 +30,7 @@ import { limiter } from "./utils/limiting.js";
 dotenv.config();
 const app = express();
 const corsOptions = {
-  origin: "http://localhost:3000",
+  origin: ["http://localhost:3000", "https://ancestropedia.vercel.app/"],
   credentials: true,
 };
 

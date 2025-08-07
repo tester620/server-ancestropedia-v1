@@ -4,6 +4,7 @@ import Post from "../models/post.model.js";
 import logger from "../config/logger.js";
 import Tree from "../models/tree.model.js";
 import Person from "../models/person.model.js";
+import AdminBlog from "../models/admin.blogs.model.js";
 
 export const postStory = async (req, res) => {
   const { image, videoUrl, description } = req.body;
@@ -201,6 +202,42 @@ export const searchPerson = async (req, res) => {
     });
   } catch (error) {
     logger.error("Error in searching the person profile", error);
+    return res.status(500).json({
+      message: "Internal Server Error",
+    });
+  }
+};
+
+export const getBlogs = async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    const blogs = await AdminBlog.find().skip(skip).limit(limit);
+    const total = await AdminBlog.countDocuments();
+
+    if (!blogs || !blogs.length) {
+      return res.status(404).json({
+        message: "Blogs not found",
+      });
+    }
+
+    return res.status(200).json({
+      message: "Blogs found successfully",
+      data: blogs,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    });
+  } catch (error) {
+    logger.error(
+      "Error in getting the admin blogs from user controller",
+      error
+    );
     return res.status(500).json({
       message: "Internal Server Error",
     });

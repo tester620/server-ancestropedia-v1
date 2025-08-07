@@ -3,6 +3,7 @@ import {
   bulkDeletePost,
   deletePost,
   editPost,
+  getBlogs,
   getMyPosts,
   postStory,
   searchPerson,
@@ -18,5 +19,6 @@ router.delete("/post/delete/:id", deletePost);
 router.post("/post/remove/bulk", bulkDeletePost);
 router.get("/search/tree", searchTree);
 router.get("/search/person", searchPerson);
+router.get("/fetch/blogs", getBlogs);
 
 export default router;

@@ -40,7 +40,8 @@ const userSchema = new mongoose.Schema(
     },
     profilePicture: {
       type: String,
-      default: "https://ik.imagekit.io/ancestor/default%20dp.webp?updatedAt=1754569946351",
+      default:
+        "https://ik.imagekit.io/ancestor/default%20dp.webp?updatedAt=1754569946351",
     },
 
     email: {

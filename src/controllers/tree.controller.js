@@ -122,12 +122,12 @@ export const createAndAddPerson = async (req, res) => {
     }
 
     const newPerson = new Person({
-      firstName: firstName.trim(),
-      lastName: lastName.trim(),
-      profession,
+      firstName: firstName.trim().toLowerCase(),
+      lastName: lastName.trim().toLowerCase(),
+      profession:profession.trim().toLowerCase(),
       dob,
       dod: living ? null : dod,
-      gender,
+      gender:gender.trim().toLowerCase(),
       living,
       creatorId: req.user._id,
       treeId,
@@ -289,9 +289,9 @@ export const editPerson = async (req, res) => {
     }
 
     // Apply updates
-    if (newFirstName) person.firstName = newFirstName.trim();
-    if (newLastName) person.lastName = newLastName.trim();
-    if (newGender) person.gender = newGender;
+    if (newFirstName) person.firstName = newFirstName.trim().toLowerCase();
+    if (newLastName) person.lastName = newLastName.trim().toLowerCase();
+    if (newGender) person.gender = newGender.toLowerCase();
     if (newDob) person.dob = newDob;
 
     if (newLiving !== undefined) {
@@ -727,6 +727,70 @@ export const getPersonDetails = async (req, res) => {
     return res.status(500).json({
       message: "Internal Server Error",
     });
+  }
+};
+
+export const getTreeDetails = async (req, res) => {
+  const { userId } = req.query;
+  try {
+    const tree = await Tree.find({
+      $or: [{ owner: userId }, { members: { $in: [userId] } }],
+    });
+    if (!tree || tree.length === 0) {
+      return res.status(400).json({ message: "Tree not found" });
+    }
+    return res.status(200).json({ message: "Tree fetched", data: tree });
+  } catch (error) {
+    return res
+      .status(500)
+      .json({ message: "Server error", error: error.message });
+  }
+};
+
+export const searchTree = async (req, res) => {
+  const { name, surname, ageRange, profession, region } = req.body;
+  if (!name && !surname && !ageRange && !profession && !region) {
+    return res.status(400).json({ message: "At least one field is required" });
+  }
+
+  let dobYearRange;
+  if (ageRange) {
+    dobYearRange = {
+      start: new Date().getFullYear() - ageRange.start,
+      end: new Date().getFullYear() - ageRange.end,
+    };
+  }
+
+  try {
+    const query = {};
+    if (name) query.name = name.trim();
+    if (surname) query.surname = surname.trim();
+    if (dobYearRange) {
+      query.dob = {
+        $gte: new Date(`${dobYearRange.end}-01-01`),
+        $lte: new Date(`${dobYearRange.start}-12-31`),
+      };
+    }
+    if (profession) query.profession = profession;
+    if (region) query.location = region;
+
+    const person = await Person.findOne(query).populate("treeId");
+    if (!person) {
+      return res.status(404).json({ message: "Not found" });
+    }
+
+    return res.status(200).json({
+      message: "Tree fetched",
+      data: {
+        tree: person.treeId,
+        mainId: person._id,
+        ref: person.firstName,
+      },
+    });
+  } catch (error) {
+    return res
+      .status(500)
+      .json({ message: "Server error", error: error.message });
   }
 };
 

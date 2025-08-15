@@ -98,7 +98,7 @@ export const googleCallback = async (req, res) => {
     generateToken(req.user._id, res);
     return res.redirect(`${process.env.FRONTEND_URL}/dashboard`);
   } catch (err) {
-    console.error("OAuth callback error:", err);
+    logger.error("OAuth callback error:", err);
     res.status(500).json({ message: "Login failed" });
   }
 };
@@ -115,7 +115,7 @@ export const login = async (req, res) => {
     }
     if (user.googleAuth && !user.password) {
       return res.status(400).json({
-        message: "Please login using google",
+        message: "Invalid Credentials",
       });
     }
     if (!user.verified) {
@@ -191,7 +191,6 @@ export const verifyPassToken = async (req, res) => {
   const { otp } = req.body;
 
   try {
-    console.log(email, otp);
     if (!email || !otp) {
       return res
         .status(400)
@@ -231,7 +230,7 @@ export const verifyPassToken = async (req, res) => {
       resetToken,
     });
   } catch (error) {
-    console.error("Error in OTP verification for password reset", error);
+    logger.error("Error in OTP verification for password reset", error);
     return res.status(500).json({ message: "Internal Server Error" });
   }
 };
@@ -277,7 +276,7 @@ export const resetPassword = async (req, res) => {
 
     return res.status(200).json({ message: "Password reset successful" });
   } catch (err) {
-    console.error("Password reset error", err);
+    logger.error("Password reset error", err);
     return res.status(500).json({ message: "Internal Server Error" });
   }
 };

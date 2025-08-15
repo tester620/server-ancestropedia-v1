@@ -161,27 +161,6 @@ export const bulkDeletePost = async (req, res) => {
   }
 };
 
-export const searchTree = async (req, res) => {
-  const { treeName } = req.query;
-  try {
-    const tree = await Tree.find({ name: { $regex: treeName, $options: "i" } });
-    if (!tree) {
-      return res.status(404).json({
-        message: "No tree found",
-      });
-    }
-    return res.status(200).json({
-      message: "TYree fetched succesfully",
-      data: tree,
-    });
-  } catch (error) {
-    logger.error("Error in searching the tree", error);
-    return res.status(500).json({
-      message: "Internal Server Error",
-    });
-  }
-};
-
 export const searchPerson = async (req, res) => {
   const { personName } = req.query;
   try {
@@ -236,6 +215,59 @@ export const getBlogs = async (req, res) => {
   } catch (error) {
     logger.error(
       "Error in getting the admin blogs from user controller",
+      error
+    );
+    return res.status(500).json({
+      message: "Internal Server Error",
+    });
+  }
+};
+
+export const getTree = async (req, res) => {
+  const { region, name, gender, profession, age } = req.query;
+
+  if (!name) {
+    return res.status(400).json({
+      message: "Please enter the name",
+    });
+  }
+  const add = 'smehtinG';
+  add.toLowerCase()
+
+  try {
+    const currentYear = new Date().getFullYear();
+    const dobRangeStart = age?.start ? currentYear - age.start : null;
+    const dobRangeEnd = age?.last ? currentYear - age.last : null;
+
+    const query = {};
+    if (region) query.location = region.toLowerCase();
+    if (gender) query.gender = gender.toLowerCase();
+    if (profession) query.profession = profession.toLowerCase;
+    if (dobRangeStart && dobRangeEnd) {
+      query.dob = {
+        $gte: new Date(dobRangeEnd, 0, 1),
+        $lte: new Date(dobRangeStart, 11, 31),
+      };
+    }
+    query.$or = [{ firstName: name.trim().toLowerCase() }, { lastName: name.trim().toLowerCase() }];
+
+    const person = await Person.find(query).populate("treeId");
+
+    if (!person.length) {
+      return res.status(404).json({
+        message: "No results found",
+      });
+    }
+
+    const validPersonTree = person.filter((p) => p.treeId);
+
+    return res.status(200).json({
+      message: "Trees fetched successfully",
+      data:validPersonTree,
+    });
+  } catch (error) {
+    logger.error(
+      "Error in fetching the tree via person name and other filters",
       error
     );
     return res.status(500).json({

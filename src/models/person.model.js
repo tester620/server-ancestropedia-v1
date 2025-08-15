@@ -6,6 +6,10 @@ const schemaModel = mongoose.Schema(
       type: String,
       required: true,
     },
+    location: {
+      type: String,
+      required:true //because we need to show the location on searchTree page and also it can be used to filter the data when searching for the user's tree
+    },
     creatorId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
@@ -32,7 +36,6 @@ const schemaModel = mongoose.Schema(
     },
     living: {
       type: Boolean,
-
       required: true,
     },
 

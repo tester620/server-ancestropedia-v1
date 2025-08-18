@@ -2,33 +2,67 @@ import mongoose from "mongoose";
 import { imagekit } from "../config/imagekit.js";
 import Post from "../models/post.model.js";
 import logger from "../config/logger.js";
-import Tree from "../models/tree.model.js";
 import Person from "../models/person.model.js";
 import AdminBlog from "../models/admin.blogs.model.js";
+import Folder from "../models/folder.model.js";
 
 export const postStory = async (req, res) => {
-  const { image, videoUrl, description } = req.body;
+  const { image, videoUrl, description, fileSize } = req.body;
+
   try {
-    let data = { imageUrl: null, videoUrl: null, description: "" };
+    if (
+      !description ||
+      typeof description !== "string" ||
+      !description.trim()
+    ) {
+      return res.status(400).json({ message: "Description is required" });
+    }
+
+    if (!image && !videoUrl) {
+      return res
+        .status(400)
+        .json({ message: "Either image or video URL must be provided" });
+    }
+
+    if (videoUrl && typeof videoUrl !== "string") {
+      return res.status(400).json({ message: "Invalid video URL" });
+    }
+
+    if (fileSize && typeof fileSize !== "number") {
+      return res.status(400).json({ message: "Invalid file size" });
+    }
+
+    let imageUrl = null;
+    let size = fileSize || null;
+
     if (image) {
       const uploadRes = await imagekit.upload({
         file: image,
         fileName: "myImage.jpg",
       });
-      data.imageUrl = uploadRes.url;
+
+      if (!uploadRes || !uploadRes.url) {
+        return res.status(500).json({ message: "Image upload failed" });
+      }
+
+      imageUrl = uploadRes.url;
+      size = uploadRes.size;
     }
-    if (videoUrl) data.videoUrl = videoUrl;
-    if (description) data.description = description;
+
     const newPost = new Post({
       userId: req.user._id,
-      videoUrl: data.videoUrl,
-      imageUrl: data.imageUrl,
-      description: data.description,
+      imageUrl,
+      videoUrl: videoUrl || null,
+      description: description.trim(),
+      size,
     });
+
     await newPost.save();
-    return res
-      .status(201)
-      .json({ message: "Post submitted successfully", data: newPost });
+
+    return res.status(201).json({
+      message: "Post submitted successfully",
+      data: newPost,
+    });
   } catch (error) {
     logger.error("Error in uploading post", error);
     return res.status(500).json({ message: "Internal Server Error" });
@@ -226,52 +260,94 @@ export const getBlogs = async (req, res) => {
 export const getTree = async (req, res) => {
   const { region, name, gender, profession, age } = req.query;
 
+  const page = parseInt(req.query.page) || 1;
+  const limit = 6;
+  const skip = (page - 1) * limit;
+
   if (!name) {
-    return res.status(400).json({
-      message: "Please enter the name",
-    });
+    return res.status(400).json({ message: "Please enter the name" });
   }
-  const add = 'smehtinG';
-  add.toLowerCase()
 
   try {
     const currentYear = new Date().getFullYear();
-    const dobRangeStart = age?.start ? currentYear - age.start : null;
-    const dobRangeEnd = age?.last ? currentYear - age.last : null;
+    let dobRangeStart = null;
+    let dobRangeEnd = null;
 
-    const query = {};
-    if (region) query.location = region.toLowerCase();
+    if (age) {
+      const [startStr, endStr] = age.split("-");
+      const startNum = parseInt(startStr);
+      const endNum = parseInt(endStr);
+      dobRangeStart = !isNaN(startNum) ? currentYear - startNum : null;
+      dobRangeEnd = !isNaN(endNum) ? currentYear - endNum : null;
+    }
+
+    const query = {
+      $or: [
+        { firstName: { $regex: name.trim(), $options: "i" } },
+        { lastName: { $regex: name.trim(), $options: "i" } },
+      ],
+    };
+
+    if (region) query.location = { $regex: region.trim(), $options: "i" };
     if (gender) query.gender = gender.toLowerCase();
-    if (profession) query.profession = profession.toLowerCase;
-    if (dobRangeStart && dobRangeEnd) {
+    if (profession)
+      query.profession = { $regex: profession.trim(), $options: "i" };
+    if (dobRangeStart !== null && dobRangeEnd !== null) {
       query.dob = {
         $gte: new Date(dobRangeEnd, 0, 1),
         $lte: new Date(dobRangeStart, 11, 31),
       };
     }
-    query.$or = [{ firstName: name.trim().toLowerCase() }, { lastName: name.trim().toLowerCase() }];
 
-    const person = await Person.find(query).populate("treeId");
+    const people = await Person.find(query)
+      .populate("treeId")
+      .skip(skip)
+      .limit(limit);
 
-    if (!person.length) {
-      return res.status(404).json({
-        message: "No results found",
-      });
+    const totalDocs = await Person.countDocuments(query);
+
+    if (!people.length) {
+      return res.status(404).json({ message: "No results found" });
     }
 
-    const validPersonTree = person.filter((p) => p.treeId);
+    const validPeople = people.filter((p) => p.treeId);
 
     return res.status(200).json({
       message: "Trees fetched successfully",
-      data:validPersonTree,
+      data: validPeople,
+      currentPage: page,
+      totalPages: Math.ceil(totalDocs / limit),
+      totalTrees: totalDocs,
     });
   } catch (error) {
     logger.error(
       "Error in fetching the tree via person name and other filters",
       error
     );
-    return res.status(500).json({
-      message: "Internal Server Error",
+    return res.status(500).json({ message: "Internal Server Error" });
+  }
+};
+
+export const getVaultMemoryData = async (req, res) => {
+  try {
+    const files = await Post.find({userId:req.user._id});
+    let storageUsed = 0;
+    files.forEach((item)=>storageUsed += item.size);
+    let foldersCount = await Folder.countDocuments({
+      createdBy:req.user._id
     });
+    return res.status(200).json({
+      message:"Data fetched successfully",
+      data:{
+        storageUsed,
+        foldersCount,
+        fileStored:files?.length
+      }
+    })
+  } catch (error) {
+    logger.error("Error in getting the heritage Memery data",error);
+    return res.status(500).json({
+      message:"Internal Server Error"
+    })
   }
 };

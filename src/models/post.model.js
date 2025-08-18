@@ -10,6 +10,10 @@ const postSchema = mongoose.Schema(
       type: String,
       default: null,
     },
+    size:{
+      type:Number,
+      required:true
+    },
     thumbnail: {
       type: String,
       default: null,

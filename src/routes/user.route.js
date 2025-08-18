@@ -6,6 +6,7 @@ import {
   getBlogs,
   getMyPosts,
   getTree,
+  getVaultMemoryData,
   postStory,
   searchPerson,
 } from "../controllers/user.controller.js";
@@ -21,5 +22,6 @@ router.get("/search/person", searchPerson);
 router.get("/fetch/blogs", getBlogs);
 router.get("/fetch/tree", getTree);
 
+router.get("/vault/memory", getVaultMemoryData);
 
 export default router;

@@ -31,7 +31,7 @@ dotenv.config();
 const app = express();
 
 const corsOptions = {
-  origin: ["http://localhost:3000", "https://ancestropedia.vercel.app"],
+  origin: ["http://localhost:3000", "https://ancestropedia.vercel.app","http://ancestropedia.com","https://ancestropedia.com"],
   credentials: true,
 };
 

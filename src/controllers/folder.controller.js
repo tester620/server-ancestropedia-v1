@@ -5,52 +5,78 @@ import Folder from "../models/folder.model.js";
 import Post from "../models/post.model.js";
 
 export const createFolder = async (req, res) => {
-  const { name } = req.body;
+  const { name, folderFor, date, occasion } = req.body;
+
   try {
     if (!name || !name.trim()) {
-      return res.status(400).json({
-        message: "Name of the folder is required",
-      });
+      return res.status(400).json({ message: "Folder name is required" });
     }
-    if (name.length > 15 || name.length < 3) {
+
+    const trimmedName = name.trim();
+
+    if (trimmedName.length < 3 || trimmedName.length > 15) {
       return res.status(400).json({
-        message: "Name of the folder should be in between 3 and 15 characters",
+        message: "Folder name must be between 3 and 15 characters",
       });
     }
 
+    if (!folderFor || !folderFor.trim()) {
+      return res.status(400).json({ message: "Folder For is required" });
+    }
+
+    if (!occasion || !occasion.trim()) {
+      return res.status(400).json({ message: "Occasion is required" });
+    }
+
+    if (!date) {
+      return res.status(400).json({ message: "Date is required" });
+    }
+
     const folder = new Folder({
+      name: trimmedName,
       createdBy: req.user._id,
-      name,
+      folderFor: folderFor.trim(),
+      occasion: occasion.trim(),
+      date: new Date(date),
     });
+
     await folder.save();
+
     return res.status(201).json({
-      message: `${name} Folder Created`,
+      message: `${trimmedName} Folder Created`,
       data: folder,
     });
   } catch (error) {
     logger.error("Error in creating folder", error);
-    return res.status(500).json({
-      messagfe: "Internal Server Erro",
-    });
+    return res.status(500).json({ message: "Internal Server Error" });
   }
 };
 
 export const getMyFolders = async (req, res) => {
   try {
-    const folders = await Folder.find({
-      createdBy: req.user._id,
-    });
+    const page = parseInt(req.query.page) || 1;
+    const limit = 8;
+    const skip = (page - 1) * limit;
+    const folders = await Folder.find({ createdBy: req.user._id })
+      .skip(skip)
+      .limit(limit)
+      .populate("posts");
+
+    const totalDocs = await Folder.countDocuments({ createdBy: req.user._id });
     if (!folders || !folders.length) {
-      return res.status(404).json({
+      return res.status(400).json({
         message: "No folders found",
       });
     }
     return res.status(200).json({
-      message: "Folders fetched successfully",
-      adta: folders,
+      message: "Folder fetched succesfully",
+      data: folders,
+      currentPage: page,
+      totalPages: Math.ceil(totalDocs / limit),
+      totalFolders: totalDocs,
     });
   } catch (error) {
-    logger.error("Error in fetching the folders", error);
+    logger.error("Error in getting folder data for the user", error);
     return res.status(500).json({
       message: "Internal Server Error",
     });
@@ -406,5 +432,3 @@ export const deletePost = async (req, res) => {
     });
   }
 };
-
-

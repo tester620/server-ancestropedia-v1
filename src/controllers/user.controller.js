@@ -330,24 +330,24 @@ export const getTree = async (req, res) => {
 
 export const getVaultMemoryData = async (req, res) => {
   try {
-    const files = await Post.find({userId:req.user._id});
+    const files = await Post.find({ userId: req.user._id });
     let storageUsed = 0;
-    files.forEach((item)=>storageUsed += item.size);
+    files.forEach((item) => (storageUsed += item.size));
     let foldersCount = await Folder.countDocuments({
-      createdBy:req.user._id
+      createdBy: req.user._id,
     });
     return res.status(200).json({
-      message:"Data fetched successfully",
-      data:{
+      message: "Data fetched successfully",
+      data: {
         storageUsed,
         foldersCount,
-        fileStored:files?.length
-      }
-    })
+        fileStored: files?.length,
+      },
+    });
   } catch (error) {
-    logger.error("Error in getting the heritage Memery data",error);
+    logger.error("Error in getting the heritage Memery data", error);
     return res.status(500).json({
-      message:"Internal Server Error"
-    })
+      message: "Internal Server Error",
+    });
   }
 };

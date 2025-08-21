@@ -76,8 +76,11 @@ export const signup = async (req, res) => {
 
 export const logout = (_, res) => {
   try {
-    res.cookie("jwt", null, {
-      expires: new Date(Date.now()),
+    res.cookie("jwt", "", {
+      expires: new Date(0), 
+      path: "/",
+      domain: ".ancestropedia.com",
+      httpOnly: true,
       sameSite: "None",
       secure: true,
     });

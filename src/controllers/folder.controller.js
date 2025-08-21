@@ -1,11 +1,17 @@
-import mongoose from "mongoose";
+import mongoose, { Mongoose } from "mongoose";
 import { imagekit } from "../config/imagekit.js";
 import logger from "../config/logger.js";
 import Folder from "../models/folder.model.js";
 import Post from "../models/post.model.js";
 
 export const createFolder = async (req, res) => {
-  const { name, folderFor, date, occasion } = req.body;
+  const { name, folderFor, date, occasion, parentFolderId } = req.body;
+
+  if (parentFolderId && !mongoose.isValidObjectId(parentFolderId)) {
+    return res.status(400).json({
+      message: "Invalid Parent Folder Id",
+    });
+  }
 
   try {
     if (!name || !name.trim()) {
@@ -35,6 +41,7 @@ export const createFolder = async (req, res) => {
     const folder = new Folder({
       name: trimmedName,
       createdBy: req.user._id,
+      parentFolderId: parentFolderId ? parentFolderId : null,
       folderFor: folderFor.trim(),
       occasion: occasion.trim(),
       date: new Date(date),
@@ -55,14 +62,20 @@ export const createFolder = async (req, res) => {
 export const getMyFolders = async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
-    const limit = 8;
+    const limit = 12;
     const skip = (page - 1) * limit;
-    const folders = await Folder.find({ createdBy: req.user._id })
+    const folders = await Folder.find({
+      createdBy: req.user._id,
+      parentFolderId: { $exists: false },
+    })
       .skip(skip)
       .limit(limit)
       .populate("posts");
 
-    const totalDocs = await Folder.countDocuments({ createdBy: req.user._id });
+    const totalDocs = await Folder.countDocuments({
+      createdBy: req.user._id,
+      parentFolderId: { $exists: false },
+    });
     if (!folders || !folders.length) {
       return res.status(400).json({
         message: "No folders found",
@@ -77,6 +90,25 @@ export const getMyFolders = async (req, res) => {
     });
   } catch (error) {
     logger.error("Error in getting folder data for the user", error);
+    return res.status(500).json({
+      message: "Internal Server Error",
+    });
+  }
+};
+
+export const getAllFolders = async (req, res) => {
+  try {
+    const folders = await Folder.find({ createdBy: req.user._id });
+    if (!folders || !folders.length)
+      return res.status(400).json({
+        message: "No Folders found",
+      });
+    return res.status(200).json({
+      message: "All Folders fetched succesfully",
+      data: folders,
+    });
+  } catch (error) {
+    logger.error("Error in getting all the folders", error);
     return res.status(500).json({
       message: "Internal Server Error",
     });
@@ -153,13 +185,19 @@ export const getFolderData = async (req, res) => {
     if (folder.createdBy.toString() !== req.user._id.toString()) {
       return res.status(401).json({
         message: "Unauthorized- Can't view other's folder ",
+        code: "UnAuth",
       });
     }
+
+    const existingFolders = await Folder.find({ parentFolderId: folderId });
 
     await folder.populate("posts");
     return res.status(200).json({
       message: "Folder data fetched succesfully",
-      data: folder,
+      data: {
+        existingFolders: existingFolders,
+        folderData: folder,
+      },
     });
   } catch (error) {
     logger.error("Error in getting the data of folder with id", error);

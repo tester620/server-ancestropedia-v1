@@ -6,34 +6,20 @@ const postSchema = mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
     },
-    imageUrl: {
-      type: String,
-      default: null,
-    },
+    
     size:{
       type:Number,
       required:true
     },
-    thumbnail: {
-      type: String,
-      default: null,
+    
+    fileUrl:{
+      type:String,
+      required:true
     },
-    videoFileId: {
-      type: String,
-      default: null,
-    },
-    imageFileId: {
-      type: String,
-      default: null,
-    },
-    description: {
-      type: String,
-      default: null,
-    },
-    videoUrl: {
-      type: String,
-      default: null,
-    },
+    fileId:{
+      type:String,
+    }
+    
   },
   {
     timestamps: true,

@@ -124,10 +124,10 @@ export const createAndAddPerson = async (req, res) => {
     const newPerson = new Person({
       firstName: firstName.trim().toLowerCase(),
       lastName: lastName.trim().toLowerCase(),
-      profession:profession.trim().toLowerCase(),
+      profession: profession.trim().toLowerCase(),
       dob,
       dod: living ? null : dod,
-      gender:gender.trim().toLowerCase(),
+      gender: gender.trim().toLowerCase(),
       living,
       creatorId: req.user._id,
       treeId,
@@ -731,16 +731,17 @@ export const getPersonDetails = async (req, res) => {
 };
 
 export const getTreeDetails = async (req, res) => {
-  const { userId } = req.query;
+  const { treeId } = req.user;
   try {
-    const tree = await Tree.find({
-      $or: [{ owner: userId }, { members: { $in: [userId] } }],
-    });
-    if (!tree || tree.length === 0) {
+    const tree = await Tree.findById(treeId).populate("members");
+    const relations = await Relation.find({ treeId });
+
+    if (!tree) {
       return res.status(400).json({ message: "Tree not found" });
     }
-    return res.status(200).json({ message: "Tree fetched", data: tree });
+    return res.status(200).json({ message: "Tree fetched", data: { tree, relations } });
   } catch (error) {
+    logger.error("Error in getting my tree details", error);
     return res
       .status(500)
       .json({ message: "Server error", error: error.message });

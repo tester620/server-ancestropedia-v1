@@ -12,7 +12,7 @@ const modelSchema = mongoose.Schema(
     },
     members: {
       type: [mongoose.Schema.Types.ObjectId],
-      default: [],
+      ref:"Person"
     },
   },
   {

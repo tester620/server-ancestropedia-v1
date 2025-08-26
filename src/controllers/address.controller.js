@@ -5,30 +5,31 @@ import logger from "../config/logger.js";
 
 export const addAddress = async (req, res) => {
   const {
-    name,
+    recipient,
     mobile,
     pincode,
-    locality,
-    address,
     city,
     state,
-    addressType,
+    country,
+    email,
     landmark,
+    details,
+    house = "",
   } = req.body;
 
   if (
-    !name ||
+    !recipient ||
     !mobile ||
     !pincode ||
-    !locality ||
-    !address ||
     !city ||
     !state ||
-    !addressType ||
-    !landmark
+    !country ||
+    !email ||
+    !landmark ||
+    !details
   ) {
     return res.status(400).json({
-      message: "All the fields are required",
+      message: "All fields except house are required",
     });
   }
 
@@ -44,15 +45,18 @@ export const addAddress = async (req, res) => {
     });
   }
 
-  if (!validator.isLength(name, { min: 2 }) || !/^[a-zA-Z\s]+$/.test(name)) {
+  if (
+    !validator.isLength(recipient, { min: 2 }) ||
+    !/^[a-zA-Z\s]+$/.test(recipient)
+  ) {
     return res.status(400).json({
-      message: "Please enter a valid name",
+      message: "Please enter a valid recipient name",
     });
   }
 
-  if (!validator.isLength(address, { min: 5 })) {
+  if (!validator.isLength(details, { min: 5 })) {
     return res.status(400).json({
-      message: "Please enter a valid address",
+      message: "Please enter valid address details",
     });
   }
 
@@ -68,10 +72,15 @@ export const addAddress = async (req, res) => {
     });
   }
 
-  const validTypes = ["home", "work"];
-  if (!validTypes.includes(addressType)) {
+  if (!/^[a-zA-Z\s]+$/.test(country)) {
     return res.status(400).json({
-      message: "Please enter a valid address type",
+      message: "Please enter a valid country",
+    });
+  }
+
+  if (!validator.isEmail(email)) {
+    return res.status(400).json({
+      message: "Please enter a valid email",
     });
   }
 
@@ -83,25 +92,28 @@ export const addAddress = async (req, res) => {
 
   try {
     const addressDoc = new Address({
-      name,
+      recipient,
       userId: req.user._id,
       mobile,
       pincode,
-      locality,
-      address,
       city,
       state,
-      addressType,
+      country,
+      email,
       landmark,
+      details,
+      house,
       user: req.user._id,
     });
+
     await addressDoc.save();
+
     return res.status(201).json({
       message: "Address added successfully",
       data: addressDoc,
     });
   } catch (error) {
-    logger.error("Error in adding the address feild", error);
+    logger.error("Error in adding the address field", error);
     return res.status(500).json({
       message: "Internal Server Error",
     });
@@ -148,7 +160,6 @@ export const updateAddress = async (req, res) => {
     "name",
     "mobile",
     "pincode",
-    "locality",
     "address",
     "city",
     "state",

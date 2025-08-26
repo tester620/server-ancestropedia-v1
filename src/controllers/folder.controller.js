@@ -66,7 +66,7 @@ export const getMyFolders = async (req, res) => {
     const skip = (page - 1) * limit;
     const folders = await Folder.find({
       createdBy: req.user._id,
-      parentFolderId: { $exists: false },
+      parentFolderId:null,
     })
       .skip(skip)
       .limit(limit)
@@ -74,7 +74,7 @@ export const getMyFolders = async (req, res) => {
 
     const totalDocs = await Folder.countDocuments({
       createdBy: req.user._id,
-      parentFolderId: { $exists: false },
+      parentFolderId: null,
     });
     if (!folders || !folders.length) {
       return res.status(400).json({
@@ -387,14 +387,14 @@ export const removeFiles = async (req, res) => {
 };
 
 export const createInFolder = async (req, res) => {
-  const { image, description, videoUrl, folderId } = req.body;
+  const { image,  videoUrl, folderId,size, type } = req.body;
   try {
     if (!folderId || !mongoose.isValidObjectId(folderId)) {
       return res.status(400).json({
         message: "Valid Folder Id is required",
       });
     }
-    if (!image && !description && !videoUrl) {
+    if (!image &&  !videoUrl) {
       return res.status(400).json({
         message: "Please fill atleast one feild",
       });
@@ -416,16 +416,18 @@ export const createInFolder = async (req, res) => {
     let newPost = new Post({
       userId: req.user._id,
     });
+    newPost.size = size
+    newPost.type = type
     if (image) {
       const uploadRes = await imagekit.upload({
         file: image,
         fileName: "myImage.jpg",
       });
-      newPost.imageUrl = uploadRes.url;
-      newPost.imageFileId = uploadRes.fileId;
+      newPost.fileUrl = uploadRes.url;
+      
+      newPost.fileId = uploadRes.fileId;
     }
-    if (description) newPost.description = description;
-    if (videoUrl) newPost.videoUrl = videoUrl;
+    if (videoUrl) newPost.fileUrl = videoUrl;
     await newPost.save();
     folder.posts.push(newPost._id);
     await folder.save();
@@ -468,5 +470,45 @@ export const deletePost = async (req, res) => {
     return res.status(500).json({
       message: "Internal Server Error",
     });
+  }
+};
+
+export const linkMember = async (req, res) => {
+  const { folderId, userIds } = req.body;
+
+  if (!folderId || !mongoose.isValidObjectId(folderId)) {
+    return res.status(400).json({ message: "Invalid folder ID" });
+  }
+
+  if (!userIds || !Array.isArray(userIds)) {
+    return res.status(400).json({ message: "Invalid user IDs" });
+  }
+
+  const invalidIds = userIds.filter((id) => !mongoose.isValidObjectId(id));
+  if (invalidIds.length) {
+    return res.status(400).json({ message: "One or more invalid user IDs" });
+  }
+
+  try {
+    const folder = await Folder.findById(folderId);
+    if (!folder) {
+      return res.status(404).json({ message: "Folder not found" });
+    }
+
+    userIds.forEach((id) => {
+      if (!folder.members.includes(id)) {
+        folder.members.push(id);
+      }
+    });
+
+    await folder.save();
+
+    return res.status(200).json({
+      message: "Members linked successfully",
+      folder,
+    });
+  } catch (error) {
+    console.error("Error linking members:", error);
+    return res.status(500).json({ message: "Internal server error" });
   }
 };

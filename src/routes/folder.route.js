@@ -9,6 +9,7 @@ import {
   removeFiles,
   createInFolder,
   getAllFolders,
+  linkMember
 } from "../controllers/folder.controller.js";
 
 const router = express.Router();
@@ -22,5 +23,6 @@ router.get("/data", getFolderData);
 router.delete("/removeFolder", removeFolder);
 router.patch("/removefiles", removeFiles);
 router.post("/createInFolder", createInFolder);
+router.post("/linkMembers", linkMember);
 
 export default router;

@@ -1,36 +1,50 @@
 import mongoose from "mongoose";
 
-const folderSchema = mongoose.Schema({
-  createdBy: {
+const modelSchema = mongoose.Schema({
+  userId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: "User",
+    required: true,
   },
-  name: {
+  recipient: {
     type: String,
     required: true,
   },
-  folderFor: {
+  mobile: {
+    type: Number,
+    required: true,
+  },
+  pincode: {
+    type: Number,
+    required: true,
+  },
+  details: {
     type: String,
     required: true,
   },
-  date: {
-    type: Date,
-    required: true,
-  },
-  occasion: {
+  country: {
     type: String,
     required: true,
   },
-  posts: {
-    type: [mongoose.Schema.Types.ObjectId],
-    ref: "Post",
-  },
-  thumbnail: {
+  house: {
     type: String,
-    default:
-      "https://static1.howtogeekimages.com/wordpress/wp-content/uploads/2015/03/00_lead_image_folders.jpg?q=50&fit=crop&w=1140&h=&dpr=1.5",
+  },
+  city: {
+    type: String,
+    required: true,
+  },
+  state: {
+    type: String,
+    required: true,
+  },
+  email: {
+    type: String,
+    required: true,
+  },
+  landmark: {
+    type: String,
+    required: true,
   },
 });
 
-const Folder = mongoose.model("Folder", folderSchema);
-export default Folder;
+const Address = mongoose.model("Address", modelSchema);
+export default Address;

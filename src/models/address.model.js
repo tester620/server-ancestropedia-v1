@@ -5,7 +5,7 @@ const modelSchema = mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     required: true,
   },
-  name: {
+  recipient: {
     type: String,
     required: true,
   },
@@ -17,13 +17,16 @@ const modelSchema = mongoose.Schema({
     type: Number,
     required: true,
   },
-  locality: {
+  details: {
     type: String,
     required: true,
   },
-  address: {
+  country: {
     type: String,
     required: true,
+  },
+  house: {
+    type: String,
   },
   city: {
     type: String,
@@ -33,14 +36,13 @@ const modelSchema = mongoose.Schema({
     type: String,
     required: true,
   },
-  addressType: {
+  email: {
     type: String,
     required: true,
-    enum: ["home", "work"],
   },
   landmark: {
     type: String,
-    requried: true,
+    required: true,
   },
 });
 

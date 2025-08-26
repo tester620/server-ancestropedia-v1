@@ -1,28 +1,28 @@
 import express from "express";
 import {
-  addMemberToExistingTree,
-  createAndAddPerson,
-  createEmptyTree,
-  createTreeWithFamily,
-  editPerson,
-  editTreeDetails,
-  getAllRecomendedTrees,
-  getFullTree,
-  getFullTreeUser,
-  removePerson,
-} from "../controllers/tree.controller.js";
+  getFolderData,
+  addPosts,
+  createFolder,
+  getMyFolders,
+  removeFolder,
+  updateFolder,
+  removeFiles,
+  createInFolder,
+  getAllFolders,
+  linkMember
+} from "../controllers/folder.controller.js";
 
 const router = express.Router();
 
-router.post("/createEmptyTree", createEmptyTree);
-router.put("/update", editTreeDetails);
-router.put("/update/person", editPerson);
-router.post("/createAndAddPerson", createAndAddPerson);
-router.delete("/remove/person", removePerson);
-router.get("/getFullTree", getFullTree);
-router.post("/createTreeWithFamily", createTreeWithFamily);
-router.get("/getFullTreeUser", getFullTreeUser);
-router.post("/recomended", getAllRecomendedTrees);
-router.post("/addMember", addMemberToExistingTree);
+router.post("/create", createFolder);
+router.get("/myFolders", getMyFolders);
+router.get("/allFolders", getAllFolders);
+router.put("/updateFolder", updateFolder);
+router.post("/addPosts", addPosts);
+router.get("/data", getFolderData);
+router.delete("/removeFolder", removeFolder);
+router.patch("/removefiles", removeFiles);
+router.post("/createInFolder", createInFolder);
+router.post("/linkMembers", linkMember);
 
 export default router;

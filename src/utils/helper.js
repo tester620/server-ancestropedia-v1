@@ -1,16 +1,24 @@
 import nodemailer from "nodemailer";
 import dotenv from "dotenv";
-import Relation from "../models/relations.model.js";
+
 
 dotenv.config();
 
+
 const transporter = nodemailer.createTransport({
-  service: "gmail",
+  host: "smtp.hostinger.com",
+  port: 587,
+  secure: false,
   auth: {
     user: process.env.EMAIL,
     pass: process.env.EMAIL_PASSWORD,
   },
 });
+
+transporter.verify()
+  .then(() => console.log("SMTP connection successful"))
+  .catch((err) => console.error("SMTP connection failed:", err));
+
 
 export const generateOtp = () => {
   const otp = Math.floor(100000 + Math.random() * 900000);
@@ -62,7 +70,7 @@ export const sendPassMail = async (otp, user) => {
 
         <hr style="margin-top: 30px;" />
         <p style="font-size: 12px; color: #999; text-align: center;">
-          Need help? <a href="mailto:vermadheeraj945@gmail.com" style="color: #007BFF;">Contact us</a>
+          Need help? <a href="mailto:dave@ancestropedia.com" style="color: #007BFF;">Contact us</a>
         </p>
       </div>
     `,
@@ -120,7 +128,7 @@ export const sendVerificationMail = async (user) => {
 
         <hr style="margin-top: 30px;" />
         <p style="font-size: 12px; color: #999; text-align: center;">
-          Need help? <a href="mailto:vermadheeraj945@gmail.com" style="color: #007BFF;">Contact us</a>
+          Need help? <a href="mailto:dave@ancestropedia.com" style="color: #007BFF;">Contact us</a>
         </p>
       </div>
     `,
@@ -159,7 +167,7 @@ export const sendReportReviewMail = async (report, user) => {
         <p><strong>The Ancestropedia Team</strong></p>
         <hr style="margin-top: 30px;" />
         <p style="font-size: 12px; color: #999; text-align: center;">
-          Need help? <a href="mailto:vermadheeraj945@gmail.com" style="color: #007BFF;">Contact us</a>
+          Need help? <a href="mailto:dave@ancestropedia.com" style="color: #007BFF;">Contact us</a>
         </p>
       </div>
     `,
@@ -193,7 +201,57 @@ export const sendTokenAllotmentMail = async (user, redirectUrl) => {
         <p><strong>The Ancestropedia Team</strong></p>
         <hr style="margin-top: 30px;" />
         <p style="font-size: 12px; color: #999; text-align: center;">
-          Need help? <a href="mailto:vermadheeraj945@gmail.com" style="color: #007BFF;">Contact us</a>
+          Need help? <a href="mailto:dave@ancestropedia.com" style="color: #007BFF;">Contact us</a>
+        </p>
+      </div>
+    `,
+  };
+
+  await transporter.sendMail(mailOptions);
+};
+export const sendWelcomeMail = async (user) => {
+  const mailOptions = {
+    from: `"Ancestropedia Team" <${process.env.EMAIL}>`,
+    to: user.email,
+    subject: "Welcome to Ancestropedia 🎉",
+    html: `
+      <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #333; max-width: 600px; margin: auto; padding: 30px; border: 1px solid #e0e0e0; border-radius: 12px; background-color: #f9f9f9;">
+        
+        <div style="text-align: center; margin-bottom: 25px;">
+          <img 
+            src="https://assets.zyrosite.com/cdn-cgi/image/format=auto,w=294,fit=crop,q=95/mjE7lpywOyIq5zKx/ancestropedia-1-mePx4pQ230uGow26.png" 
+            alt="Ancestropedia Logo" 
+            style="width: 90px; height: 90px; object-fit: cover; border-radius: 50%;" 
+          />
+        </div>
+
+        <h2 style="text-align: center; color: #2f855a;">Welcome to Ancestropedia, ${user.firstName || "Explorer"}!</h2>
+        
+        <p style="font-size: 16px; line-height: 1.6;">
+          We're thrilled to have you join our growing community of family history enthusiasts. Ancestropedia helps you connect, preserve, and contribute to your family's story — one branch at a time.
+        </p>
+
+        <p style="font-size: 16px; line-height: 1.6;">
+          Whether you're exploring your ancestry or collaborating with relatives on a shared tree, we’re here to support your journey.
+        </p>
+
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="https://www.ancestropedia.com/dashboard" style="background-color: #2f855a; color: #fff; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-size: 16px;">
+            Go to Your Dashboard
+          </a>
+        </div>
+
+        <p style="font-size: 16px; line-height: 1.6;">
+          If you ever need help or have questions, don’t hesitate to reach out. Our team is always here to assist you.
+        </p>
+
+        <p style="margin-top: 30px;">Warm regards,</p>
+        <p><strong>The Ancestropedia Team</strong></p>
+
+        <hr style="margin-top: 40px; border-color: #ddd;" />
+
+        <p style="font-size: 12px; color: #888; text-align: center;">
+          Need assistance? <a href="mailto:dave@ancestropedia.com" style="color: #007BFF;">Contact Support</a>
         </p>
       </div>
     `,
@@ -228,7 +286,7 @@ export const sendTokenRemovalMail = async (user, redirectUrl) => {
         <p><strong>The Ancestropedia Team</strong></p>
         <hr style="margin-top: 30px;" />
         <p style="font-size: 12px; color: #999; text-align: center;">
-          Need help? <a href="mailto:vermadheeraj945@gmail.com" style="color: #007BFF;">Contact us</a>
+          Need help? <a href="mailto:dave@ancestropedia.com" style="color: #007BFF;">Contact us</a>
         </p>
       </div>
     `,
@@ -263,7 +321,7 @@ export const sendTokenRejectionMail = async (user, redirectUrl) => {
         <p><strong>The Ancestropedia Team</strong></p>
         <hr style="margin-top: 30px;" />
         <p style="font-size: 12px; color: #999; text-align: center;">
-          Need help? <a href="mailto:vermadheeraj945@gmail.com" style="color: #007BFF;">Contact us</a>
+          Need help? <a href="mailto:dave@ancestropedia.com" style="color: #007BFF;">Contact us</a>
         </p>
       </div>
     `,

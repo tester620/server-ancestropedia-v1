@@ -1,8 +1,9 @@
 import passport from "passport";
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import User from "../models/user.model.js";
-import dotenv from 'dotenv'
-dotenv.config()
+import dotenv from "dotenv";
+import { sendWelcomeMail } from "../utils/helper.js";
+dotenv.config();
 
 passport.use(
   new GoogleStrategy(
@@ -29,9 +30,10 @@ passport.use(
           lastName,
           email,
           verified: true,
-          googleAuth:true,
+          googleAuth: true,
           profilePicture,
         });
+        await sendWelcomeMail(newUser);
 
         return done(null, newUser);
       } catch (err) {

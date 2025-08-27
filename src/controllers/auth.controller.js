@@ -7,6 +7,7 @@ import {
   generateOtp,
   sendPassMail,
   sendVerificationMail,
+  sendWelcomeMail,
 } from "../utils/helper.js";
 import dotenv from "dotenv";
 import jwt from "jsonwebtoken";
@@ -62,6 +63,7 @@ export const signup = async (req, res) => {
     const otp = await sendVerificationMail(user);
     user.verificationToken = otp;
     await user.save();
+    await sendWelcomeMail(user)
     return res.status(201).json({
       message: "Account Created!",
       data: user,

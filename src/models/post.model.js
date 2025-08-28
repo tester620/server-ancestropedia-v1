@@ -6,20 +6,27 @@ const postSchema = mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
     },
-    
-    size:{
-      type:Number,
-      required:true
+    name: {
+      type: String,
+      required: true,
     },
-    
-    fileUrl:{
-      type:String,
-      required:true
+
+    size: {
+      type: Number,
+      required: true,
     },
-    fileId:{
-      type:String,
-    }
-    
+    type: {
+      type: String,
+      required: true,
+    },
+
+    fileUrl: {
+      type: String,
+      required: true,
+    },
+    fileId: {
+      type: String,
+    },
   },
   {
     timestamps: true,

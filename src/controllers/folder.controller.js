@@ -1,8 +1,9 @@
-import mongoose, { Mongoose } from "mongoose";
+import mongoose from "mongoose";
 import { imagekit } from "../config/imagekit.js";
 import logger from "../config/logger.js";
 import Folder from "../models/folder.model.js";
 import Post from "../models/post.model.js";
+import PrivateFolder from "../models/private-folder.model.js";
 
 export const createFolder = async (req, res) => {
   const { name, folderFor, date, occasion, parentFolderId } = req.body;
@@ -387,16 +388,16 @@ export const removeFiles = async (req, res) => {
 };
 
 export const createInFolder = async (req, res) => {
-  const { image,  videoUrl, folderId,size, type } = req.body;
+  const { image,  fileUrl, folderId,size, type,name } = req.body;
   try {
     if (!folderId || !mongoose.isValidObjectId(folderId)) {
       return res.status(400).json({
         message: "Valid Folder Id is required",
       });
     }
-    if (!image &&  !videoUrl) {
+    if ((!image &&  !fileUrl ) || !size || !type || !name) {
       return res.status(400).json({
-        message: "Please fill atleast one feild",
+        message: "Please fill atleast one field",
       });
     }
 
@@ -417,6 +418,7 @@ export const createInFolder = async (req, res) => {
       userId: req.user._id,
     });
     newPost.size = size
+    newPost.name = name
     newPost.type = type
     if (image) {
       const uploadRes = await imagekit.upload({
@@ -427,7 +429,7 @@ export const createInFolder = async (req, res) => {
       
       newPost.fileId = uploadRes.fileId;
     }
-    if (videoUrl) newPost.fileUrl = videoUrl;
+    if (fileUrl) newPost.fileUrl = fileUrl;
     await newPost.save();
     folder.posts.push(newPost._id);
     await folder.save();
@@ -512,3 +514,24 @@ export const linkMember = async (req, res) => {
     return res.status(500).json({ message: "Internal server error" });
   }
 };
+
+export const createPrivateFolder = async(req,res)=>{
+  const {name,occasion,userId} = req.body;
+  try {
+    const folder = new PrivateFolder({
+      name,
+      occasion,
+      userId
+    })
+    await folder.save();
+    return res.status(201).json({
+      message: "Private folder created successfully",
+      folder
+    });
+  } catch (error) {
+    logger.error("Error creating private folder:", error);
+    return res.status(500).json({
+      message: "Internal server error"
+    });
+  }
+}

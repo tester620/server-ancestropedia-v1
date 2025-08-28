@@ -1,50 +1,43 @@
 import mongoose from "mongoose";
 
-const modelSchema = mongoose.Schema({
-  userId: {
+const folderSchema = mongoose.Schema({
+  createdBy: {
     type: mongoose.Schema.Types.ObjectId,
-    required: true,
+    ref: "User",
   },
-  recipient: {
+  name: {
     type: String,
     required: true,
   },
-  mobile: {
-    type: Number,
-    required: true,
-  },
-  pincode: {
-    type: Number,
-    required: true,
-  },
-  details: {
+  folderFor: {
     type: String,
     required: true,
   },
-  country: {
+  date: {
+    type: Date,
+    required: true,
+  },
+  occasion: {
     type: String,
     required: true,
   },
-  house: {
-    type: String,
+  posts: {
+    type: [mongoose.Schema.Types.ObjectId],
+    ref: "Post",
   },
-  city: {
-    type: String,
-    required: true,
+  parentFolderId: {
+    type: mongoose.Schema.Types.ObjectId,
   },
-  state: {
-    type: String,
-    required: true,
+  members: {
+    type: [mongoose.Schema.Types.ObjectId],
+    ref: "Person",
   },
-  email: {
+  thumbnail: {
     type: String,
-    required: true,
-  },
-  landmark: {
-    type: String,
-    required: true,
+    default:
+      "https://ik.imagekit.io/ancestor/Folder-Default.png",
   },
 });
 
-const Address = mongoose.model("Address", modelSchema);
-export default Address;
+const Folder = mongoose.model("Folder", folderSchema);
+export default Folder;

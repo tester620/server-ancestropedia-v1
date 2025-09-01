@@ -11,6 +11,7 @@ import {
 } from "../utils/helper.js";
 import dotenv from "dotenv";
 import jwt from "jsonwebtoken";
+import { createRootFolderPrivate } from "./folder.controller.js";
 
 dotenv.config();
 
@@ -63,7 +64,8 @@ export const signup = async (req, res) => {
     const otp = await sendVerificationMail(user);
     user.verificationToken = otp;
     await user.save();
-    await sendWelcomeMail(user)
+    await sendWelcomeMail(user);
+    await createRootFolderPrivate(user);
     return res.status(201).json({
       message: "Account Created!",
       data: user,

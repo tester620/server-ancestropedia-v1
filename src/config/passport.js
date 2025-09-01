@@ -3,6 +3,7 @@ import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import User from "../models/user.model.js";
 import dotenv from "dotenv";
 import { sendWelcomeMail } from "../utils/helper.js";
+import { createRootFolderPrivate } from "../controllers/folder.controller.js";
 dotenv.config();
 
 passport.use(
@@ -34,6 +35,7 @@ passport.use(
           profilePicture,
         });
         await sendWelcomeMail(newUser);
+        await createRootFolderPrivate(newUser);
 
         return done(null, newUser);
       } catch (err) {

@@ -5,6 +5,9 @@ import logger from "../config/logger.js";
 import Person from "../models/person.model.js";
 import AdminBlog from "../models/admin.blogs.model.js";
 import Folder from "../models/folder.model.js";
+import PrivateNestedFolder from "../models/private-nested-folder.model.js";
+import PrivatePost from "../models/private-post.model.js"
+import PrivateFolder from "../models/private-folder.model.js";
 
 export const postStory = async (req, res) => {
   const { image, videoUrl, description, fileSize } = req.body;
@@ -330,24 +333,33 @@ export const getTree = async (req, res) => {
 
 export const getVaultMemoryData = async (req, res) => {
   try {
-    const files = await Post.find({ userId: req.user._id });
+    const posts = await Post.find({ userId: req.user._id });
+    const privatePosts = await PrivatePost.find({ userId: req.user._id });
+    const files = [...posts, ...privatePosts];
+
     let storageUsed = 0;
     files.forEach((item) => (storageUsed += item.size));
-    let foldersCount = await Folder.countDocuments({
-      createdBy: req.user._id,
-    });
+
+    const parentPrivateFolders = await PrivateFolder.find({ userId: req.user._id });
+    const parentPrivateFolderIds = parentPrivateFolders.map((f) => f._id);
+
+    const foldersCount =
+      (await Folder.countDocuments({ createdBy: req.user._id })) +
+      (await PrivateNestedFolder.countDocuments({ parentFolderId: { $in: parentPrivateFolderIds } }));
+
     return res.status(200).json({
       message: "Data fetched successfully",
       data: {
         storageUsed,
         foldersCount,
-        fileStored: files?.length,
+        fileStored: files.length,
       },
     });
   } catch (error) {
-    logger.error("Error in getting the heritage Memery data", error);
+    logger.error("Error in getting the heritage memory data", error);
     return res.status(500).json({
       message: "Internal Server Error",
     });
   }
 };
+

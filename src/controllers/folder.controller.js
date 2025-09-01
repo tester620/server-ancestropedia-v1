@@ -4,6 +4,8 @@ import logger from "../config/logger.js";
 import Folder from "../models/folder.model.js";
 import Post from "../models/post.model.js";
 import PrivateFolder from "../models/private-folder.model.js";
+import PrivatePost from "../models/private-post.model.js";
+import PrivateNestedFolder from "../models/private-nested-folder.model.js";
 
 export const createFolder = async (req, res) => {
   const { name, folderFor, date, occasion, parentFolderId } = req.body;
@@ -67,7 +69,7 @@ export const getMyFolders = async (req, res) => {
     const skip = (page - 1) * limit;
     const folders = await Folder.find({
       createdBy: req.user._id,
-      parentFolderId:null,
+      parentFolderId: null,
     })
       .skip(skip)
       .limit(limit)
@@ -388,14 +390,14 @@ export const removeFiles = async (req, res) => {
 };
 
 export const createInFolder = async (req, res) => {
-  const { image,  fileUrl, folderId,size, type,name } = req.body;
+  const { image, fileUrl, folderId, size, type, name } = req.body;
   try {
     if (!folderId || !mongoose.isValidObjectId(folderId)) {
       return res.status(400).json({
         message: "Valid Folder Id is required",
       });
     }
-    if ((!image &&  !fileUrl ) || !size || !type || !name) {
+    if ((!image && !fileUrl) || !size || !type || !name) {
       return res.status(400).json({
         message: "Please fill atleast one field",
       });
@@ -417,16 +419,16 @@ export const createInFolder = async (req, res) => {
     let newPost = new Post({
       userId: req.user._id,
     });
-    newPost.size = size
-    newPost.name = name
-    newPost.type = type
+    newPost.size = size;
+    newPost.name = name;
+    newPost.type = type;
     if (image) {
       const uploadRes = await imagekit.upload({
         file: image,
         fileName: "myImage.jpg",
       });
       newPost.fileUrl = uploadRes.url;
-      
+
       newPost.fileId = uploadRes.fileId;
     }
     if (fileUrl) newPost.fileUrl = fileUrl;
@@ -515,23 +517,195 @@ export const linkMember = async (req, res) => {
   }
 };
 
-export const createPrivateFolder = async(req,res)=>{
-  const {name,occasion,userId} = req.body;
+export const createPrivateNestedFolder = async (req, res) => {
+  const { name, occasion } = req.body;
+  const userId = req.user._id;
+  if (!name.trim() || !occasion.trim()) {
+    return res.status(400).json({
+      message: "Please fill all the fields",
+    });
+  }
+
+    const trimmedName = name.trim();
+    const trimmedOccasion = occasion.trim();
+
+    if (trimmedName.length < 3 || trimmedName.length > 15) {
+      return res.status(400).json({
+        message: "Folder name must be between 3 and 15 characters",
+      });
+    }
+    if (trimmedOccasion.length < 3 || trimmedOccasion.length > 15) {
+      return res.status(400).json({
+        message: "Folder occasion must be between 3 and 15 characters",
+      });
+    }
   try {
-    const folder = new PrivateFolder({
-      name,
-      occasion,
-      userId
-    })
+    const parentFolder = await PrivateFolder.findOne({ userId });
+    if (!parentFolder) {
+      return res.status(404).json({
+        message: "Parent folder not found",
+      });
+    }
+    const folder = new PrivateNestedFolder({
+      name:trimmedName,
+      occasion:trimmedOccasion,
+      parentFolderId: parentFolder._id,
+    });
     await folder.save();
     return res.status(201).json({
       message: "Private folder created successfully",
-      folder
+      data:folder,
     });
   } catch (error) {
     logger.error("Error creating private folder:", error);
     return res.status(500).json({
-      message: "Internal server error"
+      message: "Internal server error",
     });
   }
-}
+};
+
+export const getPrivateFolderRootData = async (req, res) => {
+  const userId = req.user._id;
+  try {
+    const folder = await PrivateFolder.findOne({ userId });
+    if (!folder) {
+      return res.status(404).json({
+        message: "Folder not found",
+      });
+    }
+
+    const existingFolders = await PrivateNestedFolder.find({
+      parentFolderId: folder._id,
+    });
+
+    const posts = await PrivatePost.find({ parentFolderId: folder._id });
+    return res.status(200).json({
+      message: "Folder data fetched succesfully",
+      data: {
+        existingFolders: existingFolders,
+        posts,
+        _id:folder._id
+      },
+    });
+  } catch (error) {
+    logger.error("Error in getting the data of folder with id", error);
+    return res.status(500).json({
+      message: "Internal Server Error",
+    });
+  }
+};
+
+export const getPrivateFolderData = async (req, res) => {
+  const { folderId } = req.query;
+
+  try {
+    const folder = await PrivateNestedFolder.findById(folderId);
+    if (!folder) {
+      return res.status(404).json({ message: "Folder not found" });
+    }
+
+    const parentFolders = await PrivateFolder.find({ userId: req.user._id });
+    const parentFolderIds = parentFolders.map((f) => f._id.toString());
+
+    if (!parentFolderIds.includes(folder.parentFolderId.toString())) {
+      return res.status(403).json({ message: "Unauthorised", code: "UnAuth" });
+    }
+
+    const posts = await PrivatePost.find({ parentFolderId: folder._id });
+    return res
+      .status(200)
+      .json({ message: "Folder data fetched successfully", data: {folder,posts} });
+  } catch (error) {
+    logger.error("Error in getting the private folder data", error);
+    return res.status(500).json({ message: "Internal Server Error" });
+  }
+};
+
+export const createPrivatePosts = async (req, res) => {
+  const { image, fileUrl, size, type, name, folderId, root } = req.body;
+  const isRoot = root === undefined ? true : root;
+
+  try {
+    if (!folderId || !mongoose.isValidObjectId(folderId)) {
+      return res.status(400).json({
+        message: "Valid Folder Id is required",
+      });
+    }
+    if ((!image && !fileUrl) || !size || !type || !name) {
+      return res.status(400).json({
+        message: "Please fill atleast one field",
+      });
+    }
+
+    const folder = isRoot
+      ? await PrivateFolder.findById(folderId)
+      : await PrivateNestedFolder.findById(folderId);
+    if (!folder) {
+      return res.status(400).json({
+        message: "Folder not found",
+      });
+    }
+
+    let newPost = new PrivatePost({
+      userId: req.user._id,
+    });
+    newPost.size = size;
+    newPost.parentFolderId = folderId;
+    newPost.name = name;
+    newPost.type = type;
+    if (image) {
+      const uploadRes = await imagekit.upload({
+        file: image,
+        fileName: "myImage.jpg",
+      });
+      newPost.fileUrl = uploadRes.url;
+
+      newPost.fileId = uploadRes.fileId;
+    }
+    if (fileUrl) newPost.fileUrl = fileUrl;
+    await newPost.save();
+    await folder.save();
+    return res.status(201).json({
+      message: "New post Created",
+      data: newPost,
+    });
+  } catch (error) {
+    logger.error("Error in creating post in folder", error);
+    return res.status(500).json({
+      message: "Internal Server Error",
+    });
+  }
+};
+
+export const createRootFolderPrivate = async (user) => {
+  const { userId } = user._id;
+  try {
+    if (userId) {
+      const res = await PrivateFolder.findOne({ userId });
+      if (!res) {
+        const newFolder = new PrivateFolder({ userId });
+        await newFolder.save();
+      }
+    }
+  } catch (error) {
+    logger.error("Error in xreating root folder", error);
+  }
+};
+
+export const removePrivateFolder = async (req, res) => {
+  const { folderId } = req.body;
+  try {
+    if (!folderId || !mongoose.isValidObjectId(folderId)) {
+      return res.status(400).json({
+        message: "Valid folder Id is required",
+      });
+    }
+
+    const folder = PrivateNestedFolder.findById(folderId);
+    if (!folder) {
+      return res.status(404).json({
+        messsage: "No folder found with id",
+      });
+    }
+  } catch (error) {}
+};

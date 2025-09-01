@@ -9,7 +9,11 @@ import {
   removeFiles,
   createInFolder,
   getAllFolders,
-  linkMember
+  linkMember,
+  createPrivateNestedFolder,
+  getPrivateFolderRootData,
+  createPrivatePosts,
+  getPrivateFolderData
 } from "../controllers/folder.controller.js";
 
 const router = express.Router();
@@ -25,4 +29,8 @@ router.patch("/removefiles", removeFiles);
 router.post("/createInFolder", createInFolder);
 router.post("/linkMembers", linkMember);
 
+router.post("/private/create/folder",createPrivateNestedFolder);
+router.get("/private/getRoot",getPrivateFolderRootData);
+router.post("/private/post",createPrivatePosts);
+router.get("/private/folderData",getPrivateFolderData)
 export default router;

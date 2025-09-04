@@ -10,6 +10,10 @@ const postSchema = mongoose.Schema(
       type: String,
       required: true,
     },
+    parentFolderId: {
+      type: mongoose.Schema.Types.ObjectId,
+      required: true,
+    },
 
     size: {
       type: Number,

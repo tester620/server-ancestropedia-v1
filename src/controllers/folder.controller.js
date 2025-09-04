@@ -73,7 +73,6 @@ export const getMyFolders = async (req, res) => {
     })
       .skip(skip)
       .limit(limit)
-      .populate("posts");
 
     const totalDocs = await Folder.countDocuments({
       createdBy: req.user._id,
@@ -119,50 +118,53 @@ export const getAllFolders = async (req, res) => {
 };
 
 export const updateFolder = async (req, res) => {
-  const { folderId } = req.query;
-  const { name, image } = req.body;
+  const { name, image, folderId } = req.body;
   try {
-    if (name.trim() && (name.length > 15 || name.length < 3)) {
-      return res.status(400).json({
-        message: "Name of the folder should be in between 3 and 15 characters",
-      });
+    if (!folderId || !mongoose.isValidObjectId(folderId)) {
+      return res.status(400).json({ message: "Valid Folder Id required" });
     }
+
     if ((!name || !name.trim()) && !image) {
-      return res.status(400).json({
-        message: "Please fill atleast one feild",
-      });
+      return res
+        .status(400)
+        .json({ message: "Please provide either name or image" });
     }
+
+    if (name && (name.trim().length < 3 || name.trim().length > 15)) {
+      return res
+        .status(400)
+        .json({ message: "Name should be 3–15 characters" });
+    }
+
     const folder = await Folder.findById(folderId);
     if (!folder) {
-      return res.status(400).json({
-        message: "Folder not found",
-      });
+      return res.status(404).json({ message: "Folder not found" });
     }
     if (folder.createdBy.toString() !== req.user._id.toString()) {
-      return res.status(401).json({
-        message: "Unauthorised can't edit someone's folder",
-      });
+      return res.status(401).json({ message: "Unauthorized" });
     }
+
     if (image) {
       const uploadRes = await imagekit.upload({
         file: image,
-        fileName: "myImage.jpg",
+        fileName: `${Date.now()}-folder.jpg`,
       });
       folder.thumbnail = uploadRes.url;
     }
-    if (name) {
-      folder.name = name;
+
+    if (name && name.trim()) {
+      folder.name = name.trim();
     }
+
     await folder.save();
+
     return res.status(200).json({
       message: "Folder updated successfully",
       data: folder,
     });
   } catch (error) {
-    logger.error("Error in upadting the folder", error);
-    return res.status(500).json({
-      message: "Internal Sever Error",
-    });
+    logger.error("Error in updating the folder", error);
+    return res.status(500).json({ message: "Internal Server Error" });
   }
 };
 
@@ -194,12 +196,13 @@ export const getFolderData = async (req, res) => {
 
     const existingFolders = await Folder.find({ parentFolderId: folderId });
 
-    await folder.populate("posts");
+    const posts = await Post.find({parentFolderId:folderId});
     return res.status(200).json({
       message: "Folder data fetched succesfully",
       data: {
         existingFolders: existingFolders,
-        folderData: folder,
+        posts,
+        folder: folder,
       },
     });
   } catch (error) {
@@ -211,44 +214,29 @@ export const getFolderData = async (req, res) => {
 };
 
 export const removeFolder = async (req, res) => {
-  const { folderId } = req.body;
+  const { folderId } = req.query;
   try {
-    if (!folderId) {
-      return res.status(400).json({
-        message: "Folder Id is required",
-      });
-    }
-    if (!mongoose.isValidObjectId(folderId)) {
-      return res.status(400).json({
-        message: "Invalid Folder Id",
-      });
+    if (!folderId || !mongoose.isValidObjectId(folderId)) {
+      return res.status(400).json({ message: "Valid Folder Id required" });
     }
 
     const folder = await Folder.findById(folderId);
     if (!folder) {
-      return res.status(404).json({
-        message: "Folder not found",
-      });
+      return res.status(404).json({ message: "Folder not found" });
     }
     if (folder.createdBy.toString() !== req.user._id.toString()) {
-      return res.status(401).json({
-        message: "Unauthorized- Can't remove other's folder",
-      });
+      return res.status(401).json({ message: "Unauthorized" });
     }
-    if (folder.posts.length) {
-      return res.status(400).json({
-        message: "Folder is not empty. Can't delete it",
-      });
-    }
+
+    await Post.deleteMany({ _id: { $in: folder.posts } });
     await Folder.findByIdAndDelete(folderId);
-    return res.status(202).json({
-      message: "Folder delete request made successfully",
-    });
+
+    return res
+      .status(202)
+      .json({ message: "Folder and its posts deleted successfully" });
   } catch (error) {
     logger.error("Error in removing the folder", error);
-    return res.status(500).json({
-      message: "Internal Server Error",
-    });
+    return res.status(500).json({ message: "Internal Server Error" });
   }
 };
 
@@ -432,8 +420,9 @@ export const createInFolder = async (req, res) => {
       newPost.fileId = uploadRes.fileId;
     }
     if (fileUrl) newPost.fileUrl = fileUrl;
+    newPost.parentFolderId = folderId; 
     await newPost.save();
-    folder.posts.push(newPost._id);
+    
     await folder.save();
     return res.status(201).json({
       message: "New post Created",
@@ -466,9 +455,10 @@ export const deletePost = async (req, res) => {
         message: "Unauthorized- Can't delete someone's posts",
       });
     }
-    if (post.imageUrl) {
-      await imagekit.deleteFile(post.imageFileId);
-    }
+    await Post.findByIdAndDelete(postId);
+    return res.status(200).json({
+      message: "Post Deleted successfully",
+    });
   } catch (error) {
     logger.error("Error in deleting the post", error);
     return res.status(500).json({
@@ -526,19 +516,19 @@ export const createPrivateNestedFolder = async (req, res) => {
     });
   }
 
-    const trimmedName = name.trim();
-    const trimmedOccasion = occasion.trim();
+  const trimmedName = name.trim();
+  const trimmedOccasion = occasion.trim();
 
-    if (trimmedName.length < 3 || trimmedName.length > 15) {
-      return res.status(400).json({
-        message: "Folder name must be between 3 and 15 characters",
-      });
-    }
-    if (trimmedOccasion.length < 3 || trimmedOccasion.length > 15) {
-      return res.status(400).json({
-        message: "Folder occasion must be between 3 and 15 characters",
-      });
-    }
+  if (trimmedName.length < 3 || trimmedName.length > 15) {
+    return res.status(400).json({
+      message: "Folder name must be between 3 and 15 characters",
+    });
+  }
+  if (trimmedOccasion.length < 3 || trimmedOccasion.length > 15) {
+    return res.status(400).json({
+      message: "Folder occasion must be between 3 and 15 characters",
+    });
+  }
   try {
     const parentFolder = await PrivateFolder.findOne({ userId });
     if (!parentFolder) {
@@ -547,14 +537,14 @@ export const createPrivateNestedFolder = async (req, res) => {
       });
     }
     const folder = new PrivateNestedFolder({
-      name:trimmedName,
-      occasion:trimmedOccasion,
+      name: trimmedName,
+      occasion: trimmedOccasion,
       parentFolderId: parentFolder._id,
     });
     await folder.save();
     return res.status(201).json({
       message: "Private folder created successfully",
-      data:folder,
+      data: folder,
     });
   } catch (error) {
     logger.error("Error creating private folder:", error);
@@ -584,7 +574,7 @@ export const getPrivateFolderRootData = async (req, res) => {
       data: {
         existingFolders: existingFolders,
         posts,
-        _id:folder._id
+        _id: folder._id,
       },
     });
   } catch (error) {
@@ -612,9 +602,10 @@ export const getPrivateFolderData = async (req, res) => {
     }
 
     const posts = await PrivatePost.find({ parentFolderId: folder._id });
-    return res
-      .status(200)
-      .json({ message: "Folder data fetched successfully", data: {folder,posts} });
+    return res.status(200).json({
+      message: "Folder data fetched successfully",
+      data: { folder, posts },
+    });
   } catch (error) {
     logger.error("Error in getting the private folder data", error);
     return res.status(500).json({ message: "Internal Server Error" });
@@ -693,7 +684,8 @@ export const createRootFolderPrivate = async (user) => {
 };
 
 export const removePrivateFolder = async (req, res) => {
-  const { folderId } = req.body;
+  const { folderId } = req.query;
+
   try {
     if (!folderId || !mongoose.isValidObjectId(folderId)) {
       return res.status(400).json({
@@ -701,11 +693,348 @@ export const removePrivateFolder = async (req, res) => {
       });
     }
 
-    const folder = PrivateNestedFolder.findById(folderId);
+    const folder = await PrivateNestedFolder.findById(folderId);
     if (!folder) {
       return res.status(404).json({
-        messsage: "No folder found with id",
+        message: "No folder found with id",
       });
     }
-  } catch (error) {}
+
+    const parentFolder = await PrivateFolder.findOne({ userId: req.user._id });
+    if (
+      !parentFolder ||
+      folder.parentFolderId.toString() !== parentFolder._id.toString()
+    ) {
+      return res.status(403).json({
+        message: "Unauthorised",
+        code: "UnAuth",
+      });
+    }
+
+    await PrivatePost.deleteMany({ parentFolderId: folderId });
+    await PrivateNestedFolder.findByIdAndDelete(folderId);
+
+    return res.status(200).json({
+      message: "Folder deleted successfully",
+    });
+  } catch (error) {
+    logger.error("Error in removing the private folder", error);
+    return res.status(500).json({
+      message: "Internal Server Error",
+    });
+  }
+};
+
+export const removePrivatePost = async (req, res) => {
+  const { postId } = req.query;
+  try {
+    if (!mongoose.isValidObjectId(postId)) {
+      return res.status(400).json({
+        message: "Invalid Post Id",
+      });
+    }
+    const post = await PrivatePost.findById(postId);
+    if (!post) {
+      return res.status(404).json({
+        message: "Post not found",
+      });
+    }
+    const rootFolder = await PrivateFolder.findOne({ userId: req.user._id });
+    if (post.parentFolderId.toString() !== rootFolder._id.toString()) {
+      const postParentFolder = await PrivateNestedFolder.findById(
+        post.parentFolderId
+      );
+      if (
+        postParentFolder.parentFolderId.toString() !== rootFolder._id.toString()
+      ) {
+        return res.status(401).json({
+          message: "Unauthorized- Can't remove someone else post",
+        });
+      }
+    }
+    await PrivatePost.findByIdAndDelete(postId);
+    return res.status(202).json({
+      message: "Post removed successfully",
+    });
+  } catch (error) {
+    logger.error("Error in removing the post", error);
+    return res.status(500).json({
+      message: "Internal Server Error",
+    });
+  }
+};
+
+export const updatePrivateFolder = async (req, res) => {
+  const { name, thumbnail, folderId } = req.body;
+  console.log(name, folderId, thumbnail);
+
+  try {
+    if (
+      !folderId ||
+      !mongoose.isValidObjectId(folderId) ||
+      (!name && !thumbnail)
+    ) {
+      return res.status(400).json({
+        message: "Please provide valid folder Id and updated field",
+      });
+    }
+
+    const folder = await PrivateNestedFolder.findById(folderId);
+    if (!folder) {
+      return res.status(404).json({
+        message: "Folder not found",
+      });
+    }
+
+    const parentFolder = await PrivateFolder.findOne({ userId: req.user._id });
+    if (
+      !parentFolder ||
+      folder.parentFolderId.toString() !== parentFolder._id.toString()
+    ) {
+      return res.status(403).json({
+        message: "Unauthorised",
+        code: "UnAuth",
+      });
+    }
+
+    if (name) folder.name = name;
+    if (thumbnail) {
+      const uploadRes = await imagekit.upload({
+        file: thumbnail,
+        fileName: "myImage.jpg",
+      });
+      folder.thumbnail = uploadRes.url;
+    }
+
+    await folder.save();
+
+    return res.status(200).json({
+      message: "Folder updated successfully",
+      data: folder,
+    });
+  } catch (error) {
+    logger.error("Error in updating the folder", error);
+    return res.status(500).json({
+      message: "Internal Server Error",
+    });
+  }
+};
+
+export const uploadPrivateTextFile = async (req, res) => {
+  const { name, description, parentFolderId, root } = req.body;
+  const isRoot = root === undefined ? true : root;
+  try {
+    if (!name || !description || !parentFolderId) {
+      return res.status(400).json({
+        message: "Please fill all feilds",
+      });
+    }
+    if (!mongoose.isValidObjectId(parentFolderId)) {
+      return res.status(400).json({
+        message: "Please enter a valid folder Id",
+      });
+    }
+    const rootFolder = await PrivateFolder.find({ userId: req.user._id });
+    if (!isRoot) {
+      const parentFolder = await PrivateNestedFolder.findById(parentFolderId);
+      if (!parentFolder) {
+        return res.status(404).json({
+          message: "Parent folder not found",
+        });
+      }
+      if (
+        parentFolder.parentFolderId.toString() !== rootFolder._id.toString()
+      ) {
+        return res.status(401).json({
+          message: "Unauthorised to add posts",
+        });
+      }
+    }
+    const newPost = new PrivatePost({
+      name,
+      description,
+      type: "text/",
+      size: 0,
+      parentFolderId,
+      userId: req.user._id,
+    });
+    await newPost.save();
+    return res.status(201).json({
+      message: "New text post has been created",
+      data: newPost,
+    });
+  } catch (error) {
+    logger.error("Error in creating new text post", error);
+    return res.status(500).json({
+      message: "Internal Server Error",
+    });
+  }
+};
+
+export const editPrivatePost = async (req, res) => {
+  const { postId, name } = req.body;
+  try {
+    if (!mongoose.isValidObjectId(postId)) {
+      return res.status(400).json({ message: "Invalid Post Id" });
+    }
+    const post = await PrivatePost.findById(postId);
+    if (!post) {
+      return res.status(404).json({ message: "Post not found" });
+    }
+    const rootFolder = await PrivateFolder.findOne({ userId: req.user._id });
+    if (post.parentFolderId.toString() !== rootFolder._id.toString()) {
+      const postParentFolder = await PrivateNestedFolder.findById(
+        post.parentFolderId
+      );
+      if (
+        postParentFolder.parentFolderId.toString() !== rootFolder._id.toString()
+      ) {
+        return res
+          .status(401)
+          .json({ message: "Unauthorized- Can't edit someone else post" });
+      }
+    }
+    post.name = name;
+    await post.save();
+    return res
+      .status(200)
+      .json({ message: "Post Updated successfully", data: post });
+  } catch (error) {
+    logger.error("Error in editing the post", error);
+    return res.status(500).json({ message: "Internal Server Error" });
+  }
+};
+export const editPublicPost = async (req, res) => {
+  const { postId, name } = req.body;
+  try {
+    if (!mongoose.isValidObjectId(postId)) {
+      return res.status(400).json({ message: "Invalid Post Id" });
+    }
+    const post = await Post.findById(postId);
+
+    if (!post) {
+      return res.status(404).json({ message: "Post not found" });
+    }
+    if (post.userId.toString() !== req.user._id.toString()) {
+      return res.status(401).json({
+        message: "Unatuhorised",
+      });
+    }
+    post.name = name;
+    await post.save();
+    return res
+      .status(200)
+      .json({ message: "Post Updated successfully", data: post });
+  } catch (error) {
+    logger.error("Error in editing the post", error);
+    return res.status(500).json({ message: "Internal Server Error" });
+  }
+};
+
+export const privateFolderDetails = async (req, res) => {
+  const { folderId } = req.query;
+  if (!folderId || !mongoose.isValidObjectId(folderId)) {
+    return res.status(400).json({ message: "Invalid Folder Id" });
+  }
+
+  try {
+    const result = await PrivateNestedFolder.aggregate([
+      { $match: { _id: new mongoose.Types.ObjectId(folderId) } },
+      {
+        $lookup: {
+          from: "privatefolders",
+          localField: "parentFolderId",
+          foreignField: "_id",
+          as: "parentFolder",
+        },
+      },
+      { $unwind: "$parentFolder" },
+      { $match: { "parentFolder.userId": req.user._id } },
+      {
+        $lookup: {
+          from: "privateposts",
+          let: { folderId: "$_id" },
+          pipeline: [
+            { $match: { $expr: { $eq: ["$parentFolderId", "$$folderId"] } } },
+            {
+              $group: {
+                _id: null,
+                totalSize: { $sum: "$size" },
+                postCount: { $sum: 1 },
+              },
+            },
+          ],
+          as: "postsStats",
+        },
+      },
+      { $unwind: { path: "$postsStats", preserveNullAndEmptyArrays: true } },
+      {
+        $project: {
+          postCount: { $ifNull: ["$postsStats.postCount", 0] },
+          size: { $ifNull: ["$postsStats.totalSize", 0] },
+        },
+      },
+    ]);
+
+    if (!result.length) {
+      return res
+        .status(404)
+        .json({ message: "Folder not found or unauthorised" });
+    }
+
+    const folderData = result[0];
+
+    if (folderData.postCount === 0) {
+      return res.status(200).json({
+        message: "Empty Folder",
+        data: { postCount: 0, size: 0, result },
+      });
+    }
+
+    return res.status(200).json({
+      message: "Private Folder details fetched successfully",
+      data: { postCount: folderData.postCount, size: folderData.size, result },
+    });
+  } catch (error) {
+    logger.error("Error in getting private folder details", error);
+    return res.status(500).json({ message: "Internal Server Error" });
+  }
+};
+
+export const publicFolderDetails = async (req, res) => {
+  const { folderId } = req.query;
+  if (!folderId || !mongoose.isValidObjectId(folderId)) {
+    return res.status(400).json({ message: "Invalid Folder Id" });
+  }
+
+  try {
+    const folder = await Folder.findById(folderId);
+    if (!folder) {
+      return res.status(404).json({ message: "Folder not found" });
+    }
+
+    if (folder.createdBy.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: "Unauthorised" });
+    }
+
+    const posts = await Post.find({parentFolderId:folderId})
+
+    const postCount = posts.length;
+    const totalSize = posts.reduce((sum, post) => sum + post.size, 0);
+
+    if (postCount === 0) {
+      return res.status(200).json({
+        message: "Empty Folder",
+        data: { folder, postCount: 0, size: 0 },
+      });
+    }
+
+    return res.status(200).json({
+      message: "Folder details fetched successfully",
+      data: { folder, postCount, size: totalSize },
+    });
+  } catch (error) {
+    logger.error("Error in getting folder details", error);
+    return res.status(500).json({ message: "Internal Server Error" });
+  }
 };

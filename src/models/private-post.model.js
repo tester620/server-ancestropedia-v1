@@ -14,6 +14,9 @@ const modelSchema = mongoose.Schema(
       type: Number,
       required: true,
     },
+    description:{
+      type:String
+    },
     type: {
       type: String,
       required: true,
@@ -21,10 +24,8 @@ const modelSchema = mongoose.Schema(
     parentFolderId:{
       type:mongoose.Schema.Types.ObjectId
     },
-
     fileUrl: {
       type: String,
-      required: true,
     },
     fileId: {
       type: String,

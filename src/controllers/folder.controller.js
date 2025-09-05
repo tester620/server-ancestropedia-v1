@@ -231,9 +231,29 @@ export const removeFolder = async (req, res) => {
     await Post.deleteMany({ _id: { $in: folder.posts } });
     await Folder.findByIdAndDelete(folderId);
 
+    const posts = await Post.find({ userId: req.user._id });
+    const privatePosts = await PrivatePost.find({ userId: req.user._id });
+    const files = [...posts, ...privatePosts];
+
+    let storageUsed = 0;
+    files.forEach((item) => (storageUsed += item.size));
+
+    const parentPrivateFolders = await PrivateFolder.find({ userId: req.user._id });
+    const parentPrivateFolderIds = parentPrivateFolders.map((f) => f._id);
+
+    const foldersCount =
+      (await Folder.countDocuments({ createdBy: req.user._id })) +
+      (await PrivateNestedFolder.countDocuments({ parentFolderId: { $in: parentPrivateFolderIds } }));
+
+      const updatedMemory = {
+        storageUsed,
+        foldersCount,
+        fileStored: files.length,
+      }
+
     return res
       .status(202)
-      .json({ message: "Folder and its posts deleted successfully" });
+      .json({ message: "Folder and its posts deleted successfully",data:updatedMemory});
   } catch (error) {
     logger.error("Error in removing the folder", error);
     return res.status(500).json({ message: "Internal Server Error" });
@@ -714,9 +734,29 @@ export const removePrivateFolder = async (req, res) => {
     await PrivatePost.deleteMany({ parentFolderId: folderId });
     await PrivateNestedFolder.findByIdAndDelete(folderId);
 
-    return res.status(200).json({
-      message: "Folder deleted successfully",
-    });
+    const posts = await Post.find({ userId: req.user._id });
+    const privatePosts = await PrivatePost.find({ userId: req.user._id });
+    const files = [...posts, ...privatePosts];
+
+    let storageUsed = 0;
+    files.forEach((item) => (storageUsed += item.size));
+
+    const parentPrivateFolders = await PrivateFolder.find({ userId: req.user._id });
+    const parentPrivateFolderIds = parentPrivateFolders.map((f) => f._id);
+
+    const foldersCount =
+      (await Folder.countDocuments({ createdBy: req.user._id })) +
+      (await PrivateNestedFolder.countDocuments({ parentFolderId: { $in: parentPrivateFolderIds } }));
+
+      const updatedMemory = {
+        storageUsed,
+        foldersCount,
+        fileStored: files.length,
+      }
+
+    return res
+      .status(202)
+      .json({ message: "Private Folder and its posts deleted successfully",data:updatedMemory});
   } catch (error) {
     logger.error("Error in removing the private folder", error);
     return res.status(500).json({

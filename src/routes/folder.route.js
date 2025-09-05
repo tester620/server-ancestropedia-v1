@@ -23,6 +23,7 @@ import {
   publicFolderDetails,
   editPublicPost,
   deletePost,
+  editPrivateTextContent,
 } from "../controllers/folder.controller.js";
 
 const router = express.Router();
@@ -51,5 +52,6 @@ router.post("/private/post/text", uploadPrivateTextFile);
 router.delete("/private/post/remove", removePrivatePost);
 router.put("/private/post/textEdit", uploadPrivateTextFile);
 router.put("/private/post/edit", editPrivatePost);
+router.put("/private/post/editText", editPrivateTextContent);
 router.get("/private/folder/details", privateFolderDetails);
 export default router;

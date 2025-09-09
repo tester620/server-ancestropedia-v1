@@ -261,7 +261,7 @@ export const getBlogs = async (req, res) => {
 };
 
 export const getTree = async (req, res) => {
-  const { region, name, gender, profession, age } = req.query;
+  const { region:placeOfBirth, name, gender, profession, age } = req.query;
 
   const page = parseInt(req.query.page) || 1;
   const limit = 6;
@@ -291,7 +291,7 @@ export const getTree = async (req, res) => {
       ],
     };
 
-    if (region) query.location = { $regex: region.trim(), $options: "i" };
+    if (placeOfBirth) query.placeOfBirth = { $regex: region.trim(), $options: "i" };
     if (gender) query.gender = gender.toLowerCase();
     if (profession)
       query.profession = { $regex: profession.trim(), $options: "i" };

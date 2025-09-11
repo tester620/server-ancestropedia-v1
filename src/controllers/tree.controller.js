@@ -739,7 +739,9 @@ export const getTreeDetails = async (req, res) => {
     if (!tree) {
       return res.status(400).json({ message: "Tree not found" });
     }
-    return res.status(200).json({ message: "Tree fetched", data: { tree, relations } });
+    return res
+      .status(200)
+      .json({ message: "Tree fetched", data: { tree, relations } });
   } catch (error) {
     logger.error("Error in getting my tree details", error);
     return res
@@ -847,6 +849,453 @@ export const addMemberToExistingTree = async (req, res) => {
     });
   } catch (error) {
     logger.error("Error in adding userr to the existing tree", error);
+    return res.status(500).json({
+      message: "Internal Server Error",
+    });
+  }
+};
+
+export const createMatchBuildAndMerge = async (req, res) => {
+  const {
+    spouseDetails = {},
+    personalDetails = {},
+    fatherDetails = {},
+    motherDetails = {},
+    maritalData = {},
+    siblingsData = {},
+    kidsDetails = [],
+    siblingsDetails = [],
+  } = req.body;
+
+  console.log(req.body);
+
+  try {
+    const validatePerson = (person, required = true) => {
+      if (!person || typeof person !== "object") return !required;
+      const {
+        firstName = "",
+        lastName = "",
+        occupation = "",
+        gender = "",
+        birthDate = "",
+        toDate = "",
+        placeOfBirth = "",
+        birthPin = "",
+        residence = "",
+        residencePin = "",
+      } = person;
+      if (required) {
+        return (
+          firstName.trim() &&
+          lastName.trim() &&
+          gender.trim() &&
+          birthDate.trim() &&
+          toDate.trim() &&
+          placeOfBirth.trim() &&
+          birthPin.trim() &&
+          occupation.trim() &&
+          residence.trim() &&
+          residencePin.trim()
+        );
+      }
+      return true;
+    };
+
+    if (!validatePerson(personalDetails)) {
+      return res.status(400).json({ error: "Invalid personal details" });
+    }
+
+    if (!validatePerson(fatherDetails)) {
+      return res.status(400).json({ error: "Invalid father details" });
+    }
+
+    if (!validatePerson(motherDetails)) {
+      return res.status(400).json({ error: "Invalid mother details" });
+    }
+
+    if (maritalData.status) {
+      if (typeof maritalData.status !== "string") {
+        return res.status(400).json({ error: "Invalid marital status" });
+      }
+      if (
+        maritalData.haveKids.toLowerCase() === "yes" &&
+        typeof maritalData.totalKids !== "number"
+      ) {
+        return res.status(400).json({ error: "Invalid kids count" });
+      }
+    }
+
+    if (
+      siblingsData.haveSiblings.toLowerCase() === "yes" &&
+      typeof siblingsData.totalSiblings !== "number"
+    ) {
+      return res.status(400).json({ error: "Invalid siblings count" });
+    }
+
+    if (Array.isArray(kidsDetails)) {
+      for (const kid of kidsDetails) {
+        if (!validatePerson(kid)) {
+          return res.status(400).json({ error: "Invalid kid details" });
+        }
+      }
+    }
+
+    if (Array.isArray(siblingsDetails)) {
+      for (const sib of siblingsDetails) {
+        if (!validatePerson(sib)) {
+          return res.status(400).json({ error: "Invalid sibling details" });
+        }
+      }
+    }
+
+    if (Object.keys(spouseDetails).length > 0) {
+      if (!validatePerson(spouseDetails, false)) {
+        return res.status(400).json({ error: "Invalid spouse details" });
+      }
+    }
+
+    return res.status(200).json({ message: "Validation successful" });
+  } catch (error) {
+    logger.error("Error in creating tree", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const createPerson = async (req, res) => {
+  const data = req.body;
+
+  if (!data || typeof data !== "object") {
+    return res.status(400).json({ message: "Invalid data format" });
+  }
+
+  try {
+    const personData = {
+      ...data,
+      birthDate: data.birthDate ? new Date(data.birthDate) : null,
+      toDate:
+        data.toDate && data.toDate.toLowerCase() !== "present"
+          ? new Date(data.toDate)
+          : null,
+      birthPin: data.birthPin ? Number(data.birthPin) : null,
+      residencePin: data.residencePin ? Number(data.residencePin) : null,
+      living: data.toDate && data.toDate.toLowerCase() === "present",
+    };
+
+    const newPerson = new Person(personData);
+    const savedPerson = await newPerson.save();
+
+    return res
+      .status(201)
+      .json({ message: "Person created successfully", data: savedPerson });
+  } catch (error) {
+    return res
+      .status(500)
+      .json({ message: "Server error", error: error.message });
+  }
+};
+
+export const getMatchForPerson = async (req, res) => {
+  const { relation, userId, fatherId, motherId } = req.body;
+  const page = parseInt(req.query.page) || 1;
+  const limit = 6;
+  const skip = (page - 1) * limit;
+
+  if (!mongoose.isValidObjectId(userId)) {
+    return res.status(400).json({ message: "Invalid User Id" });
+  }
+
+  try {
+    const allowedRelations = ["father", "mother", "spouse", "siblings", "kids"];
+    if (!allowedRelations.includes(relation.toLowerCase())) {
+      return res.status(400).json({ message: "Invalid relation type" });
+    }
+
+    let result;
+
+    if (relation.toLowerCase() === "siblings") {
+      result = await Relation.find({
+        from: fatherId || motherId,
+        type: fatherId ? "father" : "mother",
+      })
+        .populate("to")
+        .skip(skip)
+        .limit(limit);
+    } else if (relation.toLowerCase() === "kids") {
+      result = await Relation.find({
+        from: userId,
+        type: { $in: ["father", "mother"] },
+      })
+        .populate("to")
+        .skip(skip)
+        .limit(limit);
+    } else if (relation.toLowerCase() === "spouse") {
+      result = await Relation.find({
+        $or: [{ from: userId }, { to: userId }],
+        type: "spouse",
+      })
+        .skip(skip)
+        .limit(limit);
+
+      result = await Promise.all(
+        result.map(async (rel) => {
+          if (rel.from.toString() === userId.toString()) {
+            return await rel.populate("to");
+          } else {
+            return await rel.populate("from");
+          }
+        })
+      );
+    } else {
+      result = await Relation.find({
+        to: userId,
+        type: relation.toLowerCase(),
+      })
+        .populate("from")
+        .skip(skip)
+        .limit(limit);
+    }
+
+    return res.status(200).json({ data: result, page, limit });
+  } catch (error) {
+    return res
+      .status(500)
+      .json({ message: "Server Error", error: error.message });
+  }
+};
+
+export const matchPerson = async (req, res) => {
+  try {
+    const input = req.query;
+    const page = parseInt(req.query.page) || 1;
+    const limit = 6;
+    const skip = (page - 1) * limit;
+    const validInput = Object.values(input).every((val) =>
+      typeof val === "string" ? val.trim() !== "" : val !== null
+    );
+
+    if (!validInput) {
+      return res.status(400).json({
+        message: "Please provide valid data",
+      });
+    }
+
+    let livingCheck = null;
+    let dodCheck = null;
+
+    if (input.toDate.toLowerCase() === "present") {
+      livingCheck = true;
+    } else {
+      dodCheck = new Date(input.toDate);
+    }
+
+    const dob = new Date(input.birthDate);
+    const dobMinus2 = new Date(
+      dob.getFullYear() - 2,
+      dob.getMonth(),
+      dob.getDate()
+    );
+    const dobPlus2 = new Date(
+      dob.getFullYear() + 2,
+      dob.getMonth(),
+      dob.getDate()
+    );
+
+    const pipeline = [
+      {
+        $match: {
+          $expr: {
+            $regexMatch: {
+              input: { $concat: ["$firstName", " ", "$lastName"] },
+              regex: `\\b${input.firstName}\\b`,
+              options: "i",
+            },
+          },
+        },
+      },
+      {
+        $addFields: {
+          birthDateParsed: {
+            $dateFromString: { dateString: "$birthDate", format: "%Y-%m-%d" },
+          },
+          dodParsed: {
+            $cond: [
+              { $ifNull: ["$dod", false] },
+              { $dateFromString: { dateString: "$dod", format: "%Y-%m-%d" } },
+              null,
+            ],
+          },
+        },
+      },
+      {
+        $addFields: {
+          scoreBreakdown: {
+            name: {
+              $cond: [
+                {
+                  $or: [
+                    { $eq: ["$firstName", input.firstName] },
+                    { $eq: ["$lastName", input.lastName] },
+                  ],
+                },
+                30,
+                15,
+              ],
+            },
+            birthPin: {
+              $cond: [
+                { $eq: ["$birthPin", { $toInt: input.birthPin }] },
+                25,
+                0,
+              ],
+            },
+            birthDate: {
+              $cond: [
+                { $eq: ["$birthDateParsed", dob] },
+                20,
+                {
+                  $cond: [
+                    {
+                      $and: [
+                        { $gte: ["$birthDateParsed", dobMinus2] },
+                        { $lte: ["$birthDateParsed", dobPlus2] },
+                      ],
+                    },
+                    10,
+                    0,
+                  ],
+                },
+              ],
+            },
+            gender: {
+              $cond: [
+                { $eq: [{ $toLower: "$gender" }, input.gender.toLowerCase()] },
+                5,
+                0,
+              ],
+            },
+            occupation: {
+              $cond: [
+                { $eq: ["$occupation", input.occupation] },
+                5,
+                {
+                  $cond: [
+                    {
+                      $regexMatch: {
+                        input: "$occupation",
+                        regex: input.occupation,
+                        options: "i",
+                      },
+                    },
+                    2,
+                    0,
+                  ],
+                },
+              ],
+            },
+            dod:
+              livingCheck === true
+                ? { $cond: [{ $eq: ["$living", true] }, 5, 0] }
+                : {
+                    $cond: [
+                      { $eq: ["$dodParsed", dodCheck] },
+                      5,
+                      {
+                        $cond: [
+                          {
+                            $and: [
+                              {
+                                $gte: [
+                                  "$dodParsed",
+                                  new Date(dodCheck.getFullYear() - 2, 0, 1),
+                                ],
+                              },
+                              {
+                                $lte: [
+                                  "$dodParsed",
+                                  new Date(dodCheck.getFullYear() + 2, 11, 31),
+                                ],
+                              },
+                            ],
+                          },
+                          3,
+                          0,
+                        ],
+                      },
+                    ],
+                  },
+            residencePin: {
+              $cond: [
+                { $eq: ["$residencePin", { $toInt: input.residencePin }] },
+                3,
+                0,
+              ],
+            },
+            residence: {
+              $cond: [{ $eq: ["$residence", input.residence] }, 2, 0],
+            },
+          },
+        },
+      },
+      {
+        $addFields: {
+          score: {
+            $add: [
+              "$scoreBreakdown.name",
+              "$scoreBreakdown.birthPin",
+              "$scoreBreakdown.birthDate",
+              "$scoreBreakdown.gender",
+              "$scoreBreakdown.occupation",
+              "$scoreBreakdown.dod",
+              "$scoreBreakdown.residencePin",
+              "$scoreBreakdown.residence",
+            ],
+          },
+        },
+      },
+      { $sort: { score: -1 } },
+      {
+        $facet: {
+          metadata: [{ $count: "totalDocs" }],
+          data: [{ $skip: skip }, { $limit: limit }],
+        },
+      },
+      {
+        $addFields: {
+          totalDocs: { $arrayElemAt: ["$metadata.totalDocs", 0] },
+        },
+      },
+      {
+        $addFields: {
+          totalPages: { $ceil: { $divide: ["$totalDocs", limit] } },
+        },
+      },
+    ];
+
+    const result = await Person.aggregate(pipeline);
+
+    const data =
+      result[0]?.data?.map((doc) => ({
+        ...doc,
+        scorePercent: (doc.score / 95) * 100,
+      })) || [];
+
+    const response = {
+      data,
+      totalDocs: result[0]?.totalDocs || 0,
+      totalPages: result[0]?.totalPages || 0,
+    };
+
+    return res.status(200).json({
+      message: "Data fetched successfully",
+      data: response.data,
+      page,
+      limit,
+      totalDocs: response.totalDocs,
+      totalPages: response.totalPages,
+      hasNextPage: page < response.totalPages,
+    });
+  } catch (error) {
+    logger.error("Error in matching person", error);
     return res.status(500).json({
       message: "Internal Server Error",
     });

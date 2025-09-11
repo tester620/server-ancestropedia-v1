@@ -1,28 +1,38 @@
 import express from "express";
 import {
-  getFolderData,
-  addPosts,
-  createFolder,
-  getMyFolders,
-  removeFolder,
-  updateFolder,
-  removeFiles,
-  createInFolder,
-  getAllFolders,
-  linkMember
-} from "../controllers/folder.controller.js";
+  addMemberToExistingTree,
+  createAndAddPerson,
+  createEmptyTree,
+  createMatchBuildAndMerge,
+  createPerson,
+  createTreeWithFamily,
+  editPerson,
+  editTreeDetails,
+  getAllRecomendedTrees,
+  getFullTree,
+  getFullTreeUser,
+  getMatchForPerson,
+  getTreeDetails,
+  matchPerson,
+  removePerson,
+} from "../controllers/tree.controller.js";
 
 const router = express.Router();
 
-router.post("/create", createFolder);
-router.get("/myFolders", getMyFolders);
-router.get("/allFolders", getAllFolders);
-router.put("/updateFolder", updateFolder);
-router.post("/addPosts", addPosts);
-router.get("/data", getFolderData);
-router.delete("/removeFolder", removeFolder);
-router.patch("/removefiles", removeFiles);
-router.post("/createInFolder", createInFolder);
-router.post("/linkMembers", linkMember);
+router.post("/createEmptyTree", createEmptyTree);
+router.put("/update", editTreeDetails);
+router.put("/update/person", editPerson);
+router.post("/createAndAddPerson", createAndAddPerson);
+router.delete("/remove/person", removePerson);
+router.get("/getFullTree", getFullTree);
+router.post("/createTreeWithFamily", createTreeWithFamily);
+router.get("/getFullTreeUser", getFullTreeUser);
+router.get("/getMyTreeData", getTreeDetails);
+router.post("/recomended", getAllRecomendedTrees);
+router.post("/addMember", addMemberToExistingTree);
+router.post("/createTree", createMatchBuildAndMerge);
+router.get("/matchPerson", matchPerson);
+router.get("/getMatchFromSelectedUser", getMatchForPerson);
+router.post("/person/create", createPerson);
 
 export default router;

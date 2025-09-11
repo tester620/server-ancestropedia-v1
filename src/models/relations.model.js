@@ -9,12 +9,12 @@ const modelSchema = mongoose.Schema(
     },
     from: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
+      ref: "Person",
     },
 
     to: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
+      ref: "Person",
     },
     type: {
       type: String,

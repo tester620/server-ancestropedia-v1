@@ -2,29 +2,35 @@ import mongoose from "mongoose";
 
 const schemaModel = mongoose.Schema(
   {
-    firstName: { type: String, required: true, index: true },
-    lastName: { type: String, required: true, index: true },
+    firstName: { type: String, required: true },
+    lastName: { type: String, required: true},
     fullName: { type: String, index: true },
 
-    birthDate: { type: Date, required: true, index: true },
-    toDate: { type: Date },
+    birthDate: { type: String, index: true },
+    toDate: { type: String },
 
-    placeOfBirth: { type: String, index: true },
-    birthPin: { type: String, index: true },
+    birthCity: { type: String},
+    birthState: { type: String },
+    birthCountry: { type:String},
 
-    placeOfBirth: { type: String, required: true },
-    birthPin:{type:Number,required:true, index: true},
-    residence: { type: String, required: true },
-    residencePin:{type:Number,required:true, index: true},
+    residenceCity: { type: String },
+    residenceState: { type: String },
+    residenceCountry: { type: String },
 
-    occupation: { type: String, required: true },
+    occupation: { type: String},
+    maritalStatus:{type:String},
+    haveKids:{type:Boolean},
+    totalKids:{type:Number},
+    haveSiblings:{type:Boolean},
+    totalSiblings:{type:Number},
+
+
 
     gender: { type: String, enum: ["male", "female", "others"], required: true },
-    living: { type: Boolean, required: true },
+    living: { type: Boolean},
 
     profileImage: { type: String, default: process.env.DEFAULT_IMAGE },
-
-    creatorId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    editedBy:{type:mongoose.Schema.Types.ObjectId, ref:"Person"},
     treeId: { type: mongoose.Schema.Types.ObjectId, ref: "Tree", index: true,default:null },
   },
   { timestamps: true }

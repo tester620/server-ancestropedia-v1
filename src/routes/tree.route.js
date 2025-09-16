@@ -14,6 +14,7 @@ import {
   getMatchForPerson,
   getTreeDetails,
   matchPerson,
+  personUpdateRequest,
   removePerson,
 } from "../controllers/tree.controller.js";
 
@@ -34,5 +35,6 @@ router.post("/createTree", createMatchBuildAndMerge);
 router.get("/matchPerson", matchPerson);
 router.get("/getMatchFromSelectedUser", getMatchForPerson);
 router.post("/person/create", createPerson);
+router.put("/person/updateWithProof", personUpdateRequest);
 
 export default router;

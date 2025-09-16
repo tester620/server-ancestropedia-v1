@@ -7,6 +7,7 @@ import { imagekit } from "../config/imagekit.js";
 import { redis } from "../config/redis.js";
 import { createSpouseRelation } from "./relations.controler.js";
 import User from "../models/user.model.js";
+import UpdateRequest from "../models/update.request.model.js";
 
 export const createEmptyTree = async (req, res) => {
   const { name } = req.body;
@@ -995,7 +996,7 @@ export const createPerson = async (req, res) => {
 };
 
 export const getMatchForPerson = async (req, res) => {
-  const { relation, userId, fatherId, motherId } = req.body;
+  const { relation, userId, fatherId, motherId } = req.query;
   const page = parseInt(req.query.page) || 1;
   const limit = 6;
   const skip = (page - 1) * limit;
@@ -1069,207 +1070,218 @@ export const matchPerson = async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const limit = 6;
     const skip = (page - 1) * limit;
-    const validInput = Object.values(input).every((val) =>
-      typeof val === "string" ? val.trim() !== "" : val !== null
-    );
 
-    if (!validInput) {
-      return res.status(400).json({
-        message: "Please provide valid data",
-      });
-    }
+    const pipeline = [];
 
-    let livingCheck = null;
-    let dodCheck = null;
-
-    if (input.toDate.toLowerCase() === "present") {
-      livingCheck = true;
-    } else {
-      dodCheck = new Date(input.toDate);
-    }
-
-    const dob = new Date(input.birthDate);
-    const dobMinus2 = new Date(
-      dob.getFullYear() - 2,
-      dob.getMonth(),
-      dob.getDate()
-    );
-    const dobPlus2 = new Date(
-      dob.getFullYear() + 2,
-      dob.getMonth(),
-      dob.getDate()
-    );
-
-    const pipeline = [
-      {
+    if (input.firstName || input.lastName) {
+      pipeline.push({
         $match: {
           $expr: {
             $regexMatch: {
               input: { $concat: ["$firstName", " ", "$lastName"] },
-              regex: `\\b${input.firstName}\\b`,
+              regex: `${input.firstName || ""}.*${input.lastName || ""}`,
               options: "i",
             },
           },
         },
-      },
-      {
-        $addFields: {
-          birthDateParsed: {
-            $dateFromString: { dateString: "$birthDate", format: "%Y-%m-%d" },
-          },
-          dodParsed: {
-            $cond: [
-              { $ifNull: ["$dod", false] },
-              { $dateFromString: { dateString: "$dod", format: "%Y-%m-%d" } },
-              null,
-            ],
-          },
+      });
+    }
+
+    pipeline.push({
+      $addFields: {
+        birthDateParsed: {
+          $cond: [
+            { $ifNull: ["$birthDate", false] },
+            { $toDate: "$birthDate" },
+            null,
+          ],
+        },
+        toDateParsed: {
+          $cond: [
+            { $ifNull: ["$toDate", false] },
+            { $toDate: "$toDate" },
+            null,
+          ],
         },
       },
-      {
-        $addFields: {
-          scoreBreakdown: {
-            name: {
-              $cond: [
-                {
-                  $or: [
-                    { $eq: ["$firstName", input.firstName] },
-                    { $eq: ["$lastName", input.lastName] },
-                  ],
+    });
+
+    const scoreConditions = {};
+
+    if (input.firstName || input.lastName) {
+      scoreConditions.name = {
+        $cond: [
+          {
+            $or: [
+              { $eq: ["$firstName", input.firstName || null] },
+              { $eq: ["$lastName", input.lastName || null] },
+            ],
+          },
+          30,
+          15,
+        ],
+      };
+    }
+
+    if (input.residencePin) {
+      scoreConditions.residencePin = {
+        $cond: [
+          { $eq: ["$residencePin", parseInt(input.residencePin)] },
+          25,
+          0,
+        ],
+      };
+    }
+
+    if (input.birthDate) {
+      const dob = new Date(input.birthDate);
+      const dobMinus2 = new Date(
+        dob.getFullYear() - 2,
+        dob.getMonth(),
+        dob.getDate()
+      );
+      const dobPlus2 = new Date(
+        dob.getFullYear() + 2,
+        dob.getMonth(),
+        dob.getDate()
+      );
+
+      scoreConditions.birthDate = {
+        $cond: [
+          { $eq: ["$birthDateParsed", dob] },
+          20,
+          {
+            $cond: [
+              {
+                $and: [
+                  { $gte: ["$birthDateParsed", dobMinus2] },
+                  { $lte: ["$birthDateParsed", dobPlus2] },
+                ],
+              },
+              10,
+              0,
+            ],
+          },
+        ],
+      };
+    }
+
+    if (input.gender) {
+      scoreConditions.gender = {
+        $cond: [
+          { $eq: [{ $toLower: "$gender" }, input.gender.toLowerCase()] },
+          5,
+          0,
+        ],
+      };
+    }
+
+    if (input.occupation) {
+      scoreConditions.occupation = {
+        $cond: [
+          { $eq: ["$occupation", input.occupation] },
+          5,
+          {
+            $cond: [
+              {
+                $regexMatch: {
+                  input: "$occupation",
+                  regex: input.occupation,
+                  options: "i",
                 },
-                30,
-                15,
-              ],
-            },
-            birthPin: {
+              },
+              2,
+              0,
+            ],
+          },
+        ],
+      };
+    }
+
+    if (input.toDate) {
+      if (input.toDate.toLowerCase() === "present") {
+        scoreConditions.living = {
+          $cond: [{ $eq: ["$living", true] }, 5, 0],
+        };
+      } else {
+        const dodCheck = new Date(input.toDate);
+        scoreConditions.toDate = {
+          $cond: [
+            { $eq: ["$toDateParsed", dodCheck] },
+            5,
+            {
               $cond: [
-                { $eq: ["$birthPin", { $toInt: input.birthPin }] },
-                25,
-                0,
-              ],
-            },
-            birthDate: {
-              $cond: [
-                { $eq: ["$birthDateParsed", dob] },
-                20,
                 {
-                  $cond: [
+                  $and: [
                     {
-                      $and: [
-                        { $gte: ["$birthDateParsed", dobMinus2] },
-                        { $lte: ["$birthDateParsed", dobPlus2] },
+                      $gte: [
+                        "$toDateParsed",
+                        new Date(dodCheck.getFullYear() - 2, 0, 1),
                       ],
                     },
-                    10,
-                    0,
-                  ],
-                },
-              ],
-            },
-            gender: {
-              $cond: [
-                { $eq: [{ $toLower: "$gender" }, input.gender.toLowerCase()] },
-                5,
-                0,
-              ],
-            },
-            occupation: {
-              $cond: [
-                { $eq: ["$occupation", input.occupation] },
-                5,
-                {
-                  $cond: [
                     {
-                      $regexMatch: {
-                        input: "$occupation",
-                        regex: input.occupation,
-                        options: "i",
-                      },
+                      $lte: [
+                        "$toDateParsed",
+                        new Date(dodCheck.getFullYear() + 2, 11, 31),
+                      ],
                     },
-                    2,
-                    0,
                   ],
                 },
-              ],
-            },
-            dod:
-              livingCheck === true
-                ? { $cond: [{ $eq: ["$living", true] }, 5, 0] }
-                : {
-                    $cond: [
-                      { $eq: ["$dodParsed", dodCheck] },
-                      5,
-                      {
-                        $cond: [
-                          {
-                            $and: [
-                              {
-                                $gte: [
-                                  "$dodParsed",
-                                  new Date(dodCheck.getFullYear() - 2, 0, 1),
-                                ],
-                              },
-                              {
-                                $lte: [
-                                  "$dodParsed",
-                                  new Date(dodCheck.getFullYear() + 2, 11, 31),
-                                ],
-                              },
-                            ],
-                          },
-                          3,
-                          0,
-                        ],
-                      },
-                    ],
-                  },
-            residencePin: {
-              $cond: [
-                { $eq: ["$residencePin", { $toInt: input.residencePin }] },
                 3,
                 0,
               ],
             },
-            residence: {
-              $cond: [{ $eq: ["$residence", input.residence] }, 2, 0],
-            },
-          },
-        },
-      },
-      {
-        $addFields: {
-          score: {
-            $add: [
-              "$scoreBreakdown.name",
-              "$scoreBreakdown.birthPin",
-              "$scoreBreakdown.birthDate",
-              "$scoreBreakdown.gender",
-              "$scoreBreakdown.occupation",
-              "$scoreBreakdown.dod",
-              "$scoreBreakdown.residencePin",
-              "$scoreBreakdown.residence",
+          ],
+        };
+      }
+    }
+
+    if (input.residenceCity || input.residenceState || input.residenceCountry) {
+      scoreConditions.residence = {
+        $cond: [
+          {
+            $or: [
+              { $eq: ["$residenceCity", input.residenceCity || null] },
+              { $eq: ["$residenceState", input.residenceState || null] },
+              { $eq: ["$residenceCountry", input.residenceCountry || null] },
             ],
           },
-        },
+          2,
+          0,
+        ],
+      };
+    }
+
+    pipeline.push({
+      $addFields: { scoreBreakdown: scoreConditions },
+    });
+
+    pipeline.push({
+      $addFields: {
+        score: { $sum: Object.values(scoreConditions) },
       },
-      { $sort: { score: -1 } },
-      {
-        $facet: {
-          metadata: [{ $count: "totalDocs" }],
-          data: [{ $skip: skip }, { $limit: limit }],
-        },
+    });
+
+    pipeline.push({ $sort: { score: -1 } });
+
+    pipeline.push({
+      $facet: {
+        metadata: [{ $count: "totalDocs" }],
+        data: [{ $skip: skip }, { $limit: limit }],
       },
-      {
-        $addFields: {
-          totalDocs: { $arrayElemAt: ["$metadata.totalDocs", 0] },
-        },
+    });
+
+    pipeline.push({
+      $addFields: {
+        totalDocs: { $arrayElemAt: ["$metadata.totalDocs", 0] },
       },
-      {
-        $addFields: {
-          totalPages: { $ceil: { $divide: ["$totalDocs", limit] } },
-        },
+    });
+
+    pipeline.push({
+      $addFields: {
+        totalPages: { $ceil: { $divide: ["$totalDocs", limit] } },
       },
-    ];
+    });
 
     const result = await Person.aggregate(pipeline);
 
@@ -1279,25 +1291,99 @@ export const matchPerson = async (req, res) => {
         scorePercent: (doc.score / 95) * 100,
       })) || [];
 
-    const response = {
-      data,
-      totalDocs: result[0]?.totalDocs || 0,
-      totalPages: result[0]?.totalPages || 0,
-    };
-
     return res.status(200).json({
       message: "Data fetched successfully",
-      data: response.data,
+      data,
       page,
       limit,
-      totalDocs: response.totalDocs,
-      totalPages: response.totalPages,
-      hasNextPage: page < response.totalPages,
+      totalDocs: result[0]?.totalDocs || 0,
+      totalPages: result[0]?.totalPages || 0,
+      hasNextPage: page < (result[0]?.totalPages || 0),
     });
   } catch (error) {
-    logger.error("Error in matching person", error);
-    return res.status(500).json({
-      message: "Internal Server Error",
+    return res.status(500).json({ message: "Internal Server Error" });
+  }
+};
+
+export const personUpdateRequest = async (req, res) => {
+  const { updatedData } = req.body;
+
+  if (!updatedData) {
+    return res.status(400).json({ message: "Please send updated data" });
+  }
+  if (!updatedData.userId || !mongoose.isValidObjectId(updatedData.userId)) {
+    return res.status(400).json({ message: "Please send a valid person id" });
+  }
+  if (!updatedData.proof) {
+    return res
+      .status(400)
+      .json({ message: "Proof is required to request change" });
+  }
+
+  try {
+    const person = await Person.findById(updatedData.userId);
+    if (!person) {
+      return res.status(404).json({ message: "Person not found" });
+    }
+
+    const allowedFields = [
+      "firstName",
+      "lastName",
+      "fullName",
+      "birthDate",
+      "toDate",
+      "birthCity",
+      "birthState",
+      "birthCountry",
+      "residenceCity",
+      "residenceState",
+      "residenceCountry",
+      "occupation",
+      "gender",
+      "living",
+      "profileImage",
+    ];
+
+    const { userId: personId, proof, ...rest } = updatedData;
+    const filteredUpdates = Object.fromEntries(
+      Object.entries(rest).filter(([key]) => allowedFields.includes(key))
+    );
+
+    const prevData = [];
+    const newData = [];
+
+    for (const [key, value] of Object.entries(filteredUpdates)) {
+      const prevValue = person[key] ?? null;
+      if (prevValue !== value) {
+        prevData.push({ [key]: prevValue });
+        newData.push({ [key]: value });
+      }
+    }
+
+    console.log(prevData),
+    console.log(newData)
+
+    const newRequest = await UpdateRequest({
+      userId: req.user._id,
+      personId,
+      prevData,
+      updatedData: newData,
+      proof,
     });
+
+    await newRequest.save();
+
+    return res.status(201).json({
+      message: "Person details request sent successfully",
+      data: newRequest,
+    });
+  } catch (error) {
+    logger.error(
+      "Error in adding request for update person with proof",
+      error?.message
+    );
+    return res
+      .status(500)
+      .json({ message: "Internal Server Error", error: error?.message });
   }
 };

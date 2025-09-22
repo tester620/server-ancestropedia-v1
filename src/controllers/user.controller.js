@@ -276,31 +276,44 @@ export const getTree = async (req, res) => {
     if (age) {
       const [startStr, endStr] = age.split("-");
       const startNum = parseInt(startStr);
-      const endNum = parseInt(endStr);
+      const endNum = endStr ? parseInt(endStr) : null;
+
       dobStart = !isNaN(startNum) ? currentYear - startNum : null;
       dobEnd = !isNaN(endNum) ? currentYear - endNum : null;
     }
 
-    const query = {
-      $or: [
-        { firstName: { $regex: name.trim(), $options: "i" } },
-        { lastName: { $regex: name.trim(), $options: "i" } },
-      ],
-    };
+    const nameParts = name.trim().split(" ").filter(Boolean);
+    const query = {};
+
+    if (nameParts.length === 1) {
+      query.$or = [
+        { firstName: { $regex: nameParts[0], $options: "i" } },
+        { lastName: { $regex: nameParts[0], $options: "i" } },
+      ];
+    } else if (nameParts.length >= 2) {
+      query.firstName = { $regex: nameParts[0], $options: "i" };
+      query.lastName = { $regex: nameParts.slice(1).join(" "), $options: "i" };
+    }
 
     if (region) query.birthCity = { $regex: region.trim(), $options: "i" };
     if (gender) query.gender = gender.toLowerCase();
-    if (occupation) query.occupation = { $regex: occupation.trim(), $options: "i" };
-    if (dobStart !== null && dobEnd !== null) {
-      const dobStartStr = `${dobEnd}-01-01`;
-      const dobEndStr = `${dobStart}-12-31`;
-      query.birthDate = { $gte: dobStartStr, $lte: dobEndStr };
+    if (occupation)
+      query.occupation = { $regex: occupation.trim(), $options: "i" };
+
+    if (dobStart !== null || dobEnd !== null) {
+      query.$expr = {
+        $and: [
+          dobEnd !== null ? { $gte: [{ $toInt: { $substr: ["$birthDate", 0, 4] } }, dobEnd] } : {},
+          dobStart !== null ? { $lte: [{ $toInt: { $substr: ["$birthDate", 0, 4] } }, dobStart] } : {}
+        ]
+      };
     }
 
-    const people = await Person.find(query).skip(skip).limit(limit);
     const totalDocs = await Person.countDocuments(query);
+    if (totalDocs === 0)
+      return res.status(404).json({ message: "No results found" });
 
-    if (!people.length) return res.status(404).json({ message: "No results found" });
+    const people = await Person.find(query).skip(skip).limit(limit);
 
     return res.status(200).json({
       message: "Trees fetched successfully",
@@ -310,10 +323,14 @@ export const getTree = async (req, res) => {
       totalTrees: totalDocs,
     });
   } catch (error) {
-    logger.error("Error in fetching the tree via person name and other filters", error);
+    logger.error(
+      "Error in fetching the tree via person name and other filters",
+      error
+    );
     return res.status(500).json({ message: "Internal Server Error" });
   }
 };
+
 
 
 export const getVaultMemoryData = async (req, res) => {

@@ -6,7 +6,7 @@ import Person from "../models/person.model.js";
 import AdminBlog from "../models/admin.blogs.model.js";
 import Folder from "../models/folder.model.js";
 import PrivateNestedFolder from "../models/private-nested-folder.model.js";
-import PrivatePost from "../models/private-post.model.js"
+import PrivatePost from "../models/private-post.model.js";
 import PrivateFolder from "../models/private-folder.model.js";
 
 export const postStory = async (req, res) => {
@@ -261,63 +261,58 @@ export const getBlogs = async (req, res) => {
 };
 
 export const getTree = async (req, res) => {
-  const { region:placeOfBirth, name, gender, profession:occupation, age } = req.query;
-
+  const { region, name, gender, profession: occupation, age } = req.query;
   const page = parseInt(req.query.page) || 1;
   const limit = 6;
   const skip = (page - 1) * limit;
 
-  if (!name) {
-    return res.status(400).json({ message: "Please enter the name" });
-  }
+  if (!name) return res.status(400).json({ message: "Please enter the name" });
 
   try {
     const currentYear = new Date().getFullYear();
-    let dobRangeStart = null;
-    let dobRangeEnd = null;
+    let dobStart = null;
+    let dobEnd = null;
 
     if (age) {
       const [startStr, endStr] = age.split("-");
       const startNum = parseInt(startStr);
       const endNum = parseInt(endStr);
-      dobRangeStart = !isNaN(startNum) ? currentYear - startNum : null;
-      dobRangeEnd = !isNaN(endNum) ? currentYear - endNum : null;
+      dobStart = !isNaN(startNum) ? currentYear - startNum : null;
+      dobEnd = !isNaN(endNum) ? currentYear - endNum : null;
     }
 
-    const query = {
-      $or: [
-        { firstName: { $regex: name.trim(), $options: "i" } },
-        { lastName: { $regex: name.trim(), $options: "i" } },
-      ],
-    };
+    const nameParts = name.trim().split(" ").filter(Boolean);
+    const query = {};
 
-    if (placeOfBirth) query.placeOfBirth = { $regex: placeOfBirth.trim(), $options: "i" };
+    if (nameParts.length === 1) {
+      query.$or = [
+        { firstName: { $regex: nameParts[0], $options: "i" } },
+        { lastName: { $regex: nameParts[0], $options: "i" } },
+      ];
+    } else if (nameParts.length >= 2) {
+      query.firstName = { $regex: nameParts[0], $options: "i" };
+      query.lastName = { $regex: nameParts.slice(1).join(" "), $options: "i" };
+    }
+
+    if (region) query.birthCity = { $regex: region.trim(), $options: "i" };
     if (gender) query.gender = gender.toLowerCase();
     if (occupation)
       query.occupation = { $regex: occupation.trim(), $options: "i" };
-    if (dobRangeStart !== null && dobRangeEnd !== null) {
-      query.dob = {
-        $gte: new Date(dobRangeEnd, 0, 1),
-        $lte: new Date(dobRangeStart, 11, 31),
-      };
+    if (dobStart !== null && dobEnd !== null) {
+      const dobStartStr = `${dobEnd}-01-01`;
+      const dobEndStr = `${dobStart}-12-31`;
+      query.birthDate = { $gte: dobStartStr, $lte: dobEndStr };
     }
-
-    const people = await Person.find(query)
-      .populate("treeId")
-      .skip(skip)
-      .limit(limit);
 
     const totalDocs = await Person.countDocuments(query);
-
-    if (!people.length) {
+    if (totalDocs === 0)
       return res.status(404).json({ message: "No results found" });
-    }
 
-    const validPeople = people.filter((p) => p.treeId);
+    const people = await Person.find(query).skip(skip).limit(limit);
 
     return res.status(200).json({
       message: "Trees fetched successfully",
-      data: validPeople,
+      data: people,
       currentPage: page,
       totalPages: Math.ceil(totalDocs / limit),
       totalTrees: totalDocs,
@@ -340,12 +335,16 @@ export const getVaultMemoryData = async (req, res) => {
     let storageUsed = 0;
     files.forEach((item) => (storageUsed += item.size));
 
-    const parentPrivateFolders = await PrivateFolder.find({ userId: req.user._id });
+    const parentPrivateFolders = await PrivateFolder.find({
+      userId: req.user._id,
+    });
     const parentPrivateFolderIds = parentPrivateFolders.map((f) => f._id);
 
     const foldersCount =
       (await Folder.countDocuments({ createdBy: req.user._id })) +
-      (await PrivateNestedFolder.countDocuments({ parentFolderId: { $in: parentPrivateFolderIds } }));
+      (await PrivateNestedFolder.countDocuments({
+        parentFolderId: { $in: parentPrivateFolderIds },
+      }));
 
     return res.status(200).json({
       message: "Data fetched successfully",
@@ -362,4 +361,3 @@ export const getVaultMemoryData = async (req, res) => {
     });
   }
 };
-

@@ -1,7 +1,6 @@
 import mongoose from "mongoose";
 import logger from "../config/logger.js";
 import Person from "../models/person.model.js";
-import Tree from "../models/tree.model.js";
 import { imagekit } from "../config/imagekit.js";
 import { redis } from "../config/redis.js";
 import UpdateRequest from "../models/update.request.model.js";
@@ -494,88 +493,7 @@ export const updateProfile = async (req, res) => {
   } catch (error) {}
 };
 
-export const getTree = async (req, res) => {
-  const user = req.user;
-  const UP_LIMIT = 3;
-  const DOWN_LIMIT = 2;
-  try {
-    const person = await Person.findById(user?._id);
-    if (!person) return res.status(404).json({ message: "Person not found" });
-    if (!person.treeId)
-      return res.status(404).json({ message: "Person has no tree" });
 
-    const tree = await Tree.findById(person.treeId);
-    if (!tree) return res.status(404).json({ message: "Tree not found" });
-
-    const visited = new Set();
-    const queue = [{ nodeId: person._id, level: 0, direction: "self" }];
-    const nodes = [];
-    const edges = [];
-
-    while (queue.length) {
-      const { nodeId, level, direction } = queue.shift();
-      if (visited.has(nodeId.toString())) continue;
-
-      const node = await Person.findById(nodeId).lean();
-      if (!node) continue;
-
-      visited.add(nodeId.toString());
-      nodes.push(node);
-
-      // --- Up: parents ---
-      if (direction !== "down" && level < UP_LIMIT) {
-        if (node.fatherId) {
-          queue.push({
-            nodeId: node.fatherId,
-            level: level + 1,
-            direction: "up",
-          });
-          edges.push({ from: node.fatherId, to: node._id, type: "father" });
-        }
-        if (node.motherId) {
-          queue.push({
-            nodeId: node.motherId,
-            level: level + 1,
-            direction: "up",
-          });
-          edges.push({ from: node.motherId, to: node._id, type: "mother" });
-        }
-      }
-
-      // --- Down: children ---
-      if (
-        direction !== "up" &&
-        level < DOWN_LIMIT &&
-        node.childrenIds?.length
-      ) {
-        node.childrenIds.forEach((childId) => {
-          queue.push({ nodeId: childId, level: level + 1, direction: "down" });
-          edges.push({ from: node._id, to: childId, type: "parent" }); // optional type
-        });
-      }
-
-      // --- Optional: add spouse edges ---
-      if (node.spouseIds?.length) {
-        node.spouseIds.forEach((spouseId) => {
-          if (!visited.has(spouseId.toString())) {
-            edges.push({ from: node._id, to: spouseId, type: "spouse" });
-            queue.push({
-              nodeId: spouseId,
-              level: level,
-              direction: "lateral",
-            });
-          }
-        });
-      }
-    }
-
-    return res
-      .status(200)
-      .json({ message: "Tree fetched successfully", data: { nodes, edges } });
-  } catch (error) {
-    return res.status(500).json({ message: "Internal Server Error" });
-  }
-};
 
 export const createPerson = async (req, res) => {
   const { personData } = req.body;

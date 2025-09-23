@@ -1,40 +1,20 @@
 import express from "express";
 import {
-  addMemberToExistingTree,
-  createAndAddPerson,
-  createEmptyTree,
-  createMatchBuildAndMerge,
   createPerson,
-  createTreeWithFamily,
-  editPerson,
-  editTreeDetails,
-  getAllRecomendedTrees,
-  getFullTree,
-  getFullTreeUser,
-  getMatchForPerson,
-  getTreeDetails,
+  getRelatedPerson,
+  getTree,
   matchPerson,
   personUpdateRequest,
-  removePerson,
+  getFullFamilyTree,
 } from "../controllers/tree.controller.js";
 
 const router = express.Router();
 
-router.post("/createEmptyTree", createEmptyTree);
-router.put("/update", editTreeDetails);
-router.put("/update/person", editPerson);
-router.post("/createAndAddPerson", createAndAddPerson);
-router.delete("/remove/person", removePerson);
-router.get("/getFullTree", getFullTree);
-router.post("/createTreeWithFamily", createTreeWithFamily);
-router.get("/getFullTreeUser", getFullTreeUser);
-router.get("/getMyTreeData", getTreeDetails);
-router.post("/recomended", getAllRecomendedTrees);
-router.post("/addMember", addMemberToExistingTree);
-router.post("/createTree", createMatchBuildAndMerge);
 router.get("/matchPerson", matchPerson);
-router.get("/getMatchFromSelectedUser", getMatchForPerson);
-router.post("/person/create", createPerson);
+router.get("/getRelatedPerson", getRelatedPerson);
+router.get("/getMyTree", getTree);
 router.put("/person/updateWithProof", personUpdateRequest);
+router.post("/person/create", createPerson);
+router.get("/getTree", getFullFamilyTree);
 
 export default router;

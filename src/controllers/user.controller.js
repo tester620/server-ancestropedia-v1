@@ -331,8 +331,6 @@ export const getTree = async (req, res) => {
   }
 };
 
-
-
 export const getVaultMemoryData = async (req, res) => {
   try {
     const posts = await Post.find({ userId: req.user._id });

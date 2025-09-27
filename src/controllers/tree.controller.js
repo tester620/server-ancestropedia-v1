@@ -4,6 +4,7 @@ import Person from "../models/person.model.js";
 import { imagekit } from "../config/imagekit.js";
 import { redis } from "../config/redis.js";
 import UpdateRequest from "../models/update.request.model.js";
+import TreeAccess from "../models/treeAccess.model.js";
 
 export const matchPerson = async (req, res) => {
   try {
@@ -259,12 +260,12 @@ export const getRelatedPerson = async (req, res) => {
     if (relation === "father" || relation === "mother") {
       if (person[relation]) relatedIds.push(person[relation]);
     } else if (relation === "kids") {
-      relatedIds = personchildrens || [];
+      relatedIds = person.childrens || [];
     } else if (relation === "siblings") {
       let parentDoc = null;
       if (person.father) parentDoc = await Person.findById(person.father);
       else if (person.mother) parentDoc = await Person.findById(person.mother);
-      console.log(parentDoc);
+      logger.error(parentDoc);
       if (parentDoc) {
         const siblingsIds = (parentDoc.childrens || []).filter(
           (id) => id.toString() !== personId
@@ -279,132 +280,69 @@ export const getRelatedPerson = async (req, res) => {
     } else {
       return res.status(400).json({ message: "Invalid relation type" });
     }
-
-    // Fetch all related persons in **one query**
     const related = await Person.find({ _id: { $in: relatedIds } });
 
     res.json({ related });
   } catch (error) {
-    res.status(500).json({ message: "Server error", error: error.message });
+    logger.error("Error in getting related person", error);
+    res.status(500).json({ message: "Internal Server Error" });
   }
 };
 
 export const getFullFamilyTree = async (req, res) => {
-  const { personId } = req.query;
-  if (!personId)
-    return res.status(400).json({ message: "personId is required" });
-
-  const visited = new Set();
-
-  const traverse = async (id) => {
-    if (!id || visited.has(id.toString())) return null;
-    visited.add(id.toString());
-
-    const person = await Person.findById(id)
-      .populate("father mother childrens spouses")
-      .lean();
-    if (!person) return null;
-
-    person.father = await traverse(person.father?._id);
-    person.mother = await traverse(person.mother?._id);
-
-    const siblingsSet = new Set();
-    if (person.father)
-      for (const kidId of person.fatherchildrens || [])
-        if (kidId.toString() !== person._id.toString())
-          siblingsSet.add(kidId.toString());
-    if (person.mother)
-      for (const kidId of person.motherchildrens || [])
-        if (kidId.toString() !== person._id.toString())
-          siblingsSet.add(kidId.toString());
-
-    person.siblings = [];
-    if (siblingsSet.size) {
-      const siblingDocs = await Person.find({
-        _id: { $in: Array.from(siblingsSet) },
-      })
-        .populate("father mother childrens spouses")
-        .lean();
-      for (const sib of siblingDocs) {
-        const sibTree = await traverse(sib._id);
-        if (sibTree) person.siblings.push(sibTree);
-      }
-    }
-
-    const kidsIds = personchildrens || [];
-    personchildrens = [];
-    if (kidsIds.length) {
-      const kidsDocs = await Person.find({ _id: { $in: kidsIds } })
-        .populate("father mother childrens spouses")
-        .lean();
-      for (const kid of kidsDocs) {
-        const kidTree = await traverse(kid._id);
-        if (kidTree) personchildrens.push(kidTree);
-      }
-    }
-
-    const spousesArray = person.spouses || [];
-    person.spouses = [];
-    for (const s of spousesArray) {
-      const spouseData = await traverse(s.spouse?._id);
-      if (spouseData) person.spouses.push({ ...s, spouse: spouseData });
-    }
-
-    const unclesAuntsSet = new Set();
-    if (person.father?.siblings)
-      for (const ua of person.father.siblings)
-        unclesAuntsSet.add(ua._id.toString());
-    if (person.mother?.siblings)
-      for (const ua of person.mother.siblings)
-        unclesAuntsSet.add(ua._id.toString());
-
-    person.unclesAunts = [];
-    if (unclesAuntsSet.size) {
-      const uaDocs = await Person.find({
-        _id: { $in: Array.from(unclesAuntsSet) },
-      })
-        .populate("father mother childrens spouses")
-        .lean();
-      for (const ua of uaDocs) {
-        const uaTree = await traverse(ua._id);
-        if (uaTree) person.unclesAunts.push(uaTree);
-      }
-    }
-
-    const cousinsSet = new Set();
-    for (const ua of person.unclesAunts)
-      if (uachildrens)
-        for (const c of uachildrens) cousinsSet.add(c._id.toString());
-
-    person.cousins = [];
-    if (cousinsSet.size) {
-      const cousinDocs = await Person.find({
-        _id: { $in: Array.from(cousinsSet) },
-      })
-        .populate("father mother childrens spouses")
-        .lean();
-      for (const c of cousinDocs) {
-        const cTree = await traverse(c._id);
-        if (cTree) person.cousins.push(cTree);
-      }
-    }
-
-    return person;
-  };
-
   try {
-    const fullTree = await traverse(personId);
-    if (!fullTree) return res.status(404).json({ message: "Person not found" });
-    res.status(200).json(fullTree);
-  } catch (error) {
-    console.log(error);
-    res.status(500).json({ message: error.message });
+    const { id } = req.query;
+    const visited = new Map();
+
+    const populateFlat = async (personId) => {
+      if (!personId) return;
+      const key = personId.toString();
+      if (visited.has(key)) return;
+
+      const person = await Person.findById(personId)
+        .lean()
+        .select("-__v -createdAt -updatedAt");
+
+      if (!person) return;
+      visited.set(key, {
+        ...person,
+        father: person.father,
+        mother: person.mother,
+        childrens: person.childrens,
+        spouses: person.spouses,
+      });
+
+      if (person.father) await populateFlat(person.father);
+      if (person.mother) await populateFlat(person.mother);
+      await Promise.all((person.childrens || []).map((c) => populateFlat(c)));
+      await Promise.all(
+        (person.spouses || []).map((s) => populateFlat(s?.spouse))
+      );
+    };
+
+    await populateFlat(id);
+
+    const people = Object.fromEntries(visited);
+    const root = people[id];
+
+    return res.status(200).json({
+      message: "Tree fetched successfully",
+      data: {
+        people,
+        tree: {
+          _id: id,
+          father: root?.father || null,
+          mother: root?.mother || null,
+          childrens: root?.childrens || [],
+          spouses: (root?.spouses || []).map((s) => s?.spouse),
+        },
+      },
+    });
+  } catch (err) {
+    logger.error("Error in getting full family tree", err);
+    res.status(500).json({ error: "Internal Server Error" });
   }
 };
-
-// export const createTree = async(req,res)=>{
-
-// }
 
 export const personUpdateRequest = async (req, res) => {
   const { updatedData } = req.body;
@@ -412,7 +350,7 @@ export const personUpdateRequest = async (req, res) => {
   if (!updatedData) {
     return res.status(400).json({ message: "Please send updated data" });
   }
-  if (!updatedData.userId || !mongoose.isValidObjectId(updatedData.userId)) {
+  if (!updatedData.userId) {
     return res.status(400).json({ message: "Please send a valid person id" });
   }
   if (!updatedData.proof) {
@@ -493,8 +431,6 @@ export const updateProfile = async (req, res) => {
   } catch (error) {}
 };
 
-
-
 export const createPerson = async (req, res) => {
   const { personData } = req.body;
   try {
@@ -507,8 +443,81 @@ export const createPerson = async (req, res) => {
 
     return res.status(201).json({ data: newPerson });
   } catch (error) {
-    return res
-      .status(500)
-      .json({ message: "Server Error", error: error.message });
+    logger.error("Error in creatong person", error);
+    return res.status(500).json({ message: "Internal Server Error" });
+  }
+};
+
+export const unlockTree = async (req, res) => {
+  const { treeId } = req.body;
+  const user = req.user;
+
+  try {
+    if ((user.allotedTokens-user.tokens) < 10) {
+      return res.status(400).json({ message: "Not enough tokens" });
+    }
+
+    const now = Date.now();
+    const thirtyDays = 30 * 24 * 60 * 60 * 1000;
+
+    let access = await TreeAccess.findOne({
+      userId: user._id,
+      treeId,
+    }).populate("treeId");
+
+    if (access) {
+      if (access.expiresAt > now) {
+        return res.status(200).json({
+          message: "Already unlocked",
+          expiresAt: access.expiresAt,
+          deducted: false,
+          data: access,
+        });
+      }
+      access.expiresAt = new Date(now + thirtyDays);
+      user.tokens += 10;
+      await Promise.all([user.save(), access.save()]);
+      return res.status(200).json({
+        message: "Renewed access",
+        expiresAt: access.expiresAt,
+        deducted: true,
+        data: access,
+      });
+    }
+
+    access = await TreeAccess.create({
+      userId: user._id,
+      treeId,
+      grantedAt: new Date(now),
+      expiresAt: new Date(now + thirtyDays),
+    });
+
+    await user.updateOne({ $inc: { tokens: +10 } });
+    access = await access.populate("treeId");
+
+    res
+      .status(200)
+      .json({ message: "Tree unlocked", data: access, deducted: true });
+  } catch (error) {
+    logger.error("Error in unlocking trees", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+};
+
+export const getAccessedTree = async (req, res) => {
+  try {
+    const trees = await TreeAccess.find({ userId: req.user._id }).populate(
+      "treeId"
+    );
+
+    return res.status(200).json({
+      message: "Accessed trees fetched",
+      data: trees,
+    });
+  } catch (error) {
+    logger.error("Error in getting accessed trees", error);
+    return res.status(500).json({
+      message: "Internal Server Error",
+    });
   }
 };

@@ -309,11 +309,14 @@ export const getTree = async (req, res) => {
       };
     }
 
+
     const totalDocs = await Person.countDocuments(query);
     if (totalDocs === 0)
       return res.status(404).json({ message: "No results found" });
 
-    const people = await Person.find(query).skip(skip).limit(limit);
+    const people = await Person.find(query).skip(skip).limit(limit).populate("father mother");
+
+
 
     return res.status(200).json({
       message: "Trees fetched successfully",

@@ -44,9 +44,9 @@ router.get(
 
 router.get("/status", (req, res) => {
   if (req.cookies?.jwt) {
-    res.json({ authenticated: true });
+   return res.json({ authenticated: true });
   } else {
-    res.json({ authenticated: false });
+   return res.json({ authenticated: false });
   }
 });
 

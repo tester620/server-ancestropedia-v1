@@ -7,6 +7,8 @@ import {
   getFullFamilyTree,
   unlockTree,
   getAccessedTree,
+  buildTree,
+  getMyFamilyTree,
 } from "../controllers/tree.controller.js";
 
 const router = express.Router();
@@ -16,7 +18,9 @@ router.get("/getRelatedPerson", getRelatedPerson);
 router.put("/person/updateWithProof", personUpdateRequest);
 router.post("/person/create", createPerson);
 router.get("/getTree", getFullFamilyTree);
+router.get("/myTree", getMyFamilyTree);
 router.post("/unlock", unlockTree);
+router.post("/build", buildTree);
 router.get("/unlocked", getAccessedTree);
 
 export default router;

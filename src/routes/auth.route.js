@@ -42,4 +42,12 @@ router.get(
   googleCallback
 );
 
+router.get("/auth/status", (req, res) => {
+  if (req.cookies?.jwt) {
+    res.json({ authenticated: true });
+  } else {
+    res.json({ authenticated: false });
+  }
+});
+
 export default router;

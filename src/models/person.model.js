@@ -2,7 +2,11 @@ import mongoose from "mongoose";
 
 const schemaModel = mongoose.Schema(
   {
-    _id: { type: String, required: true },
+    _id: {
+      type: String,
+      required: true,
+      default: () => new mongoose.Types.ObjectId().toString(),
+    },
     firstName: { type: String, required: true },
     lastName: { type: String },
     birthDate: { type: String, index: true },

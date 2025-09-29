@@ -40,7 +40,12 @@ export const matchPerson = async (req, res) => {
         },
         toDateParsed: {
           $cond: [
-            { $ifNull: ["$toDate", false] },
+            {
+              $and: [
+                { $ifNull: ["$toDate", false] },
+                { $ne: [{ $toLower: "$toDate" }, "present"] },
+              ],
+            },
             { $toDate: "$toDate" },
             null,
           ],
@@ -609,12 +614,6 @@ export const buildTree = async (req, res) => {
       await user.save({ session });
     }
 
-    if (maritalData) {
-      user.maritalStatus = maritalData.status || user.maritalStatus;
-      user.spouseCount = maritalData.spouseCount || user.spouseCount;
-      user.childrenCount = maritalData.childrenCount || user.childrenCount;
-    }
-
     let father = null;
     if (selectedFather) {
       father = await Person.findById(selectedFather._id).session(session);
@@ -691,12 +690,31 @@ export const buildTree = async (req, res) => {
         await spouse.save({ session });
       }
     } else if (spouseDetails) {
-      const processed = await processImage(spouseDetails);
+      const status = maritalData?.status;
+      const {
+        marriageDate: fromDate,
+        divorceDate: toDate,
+        ...spouseData
+      } = spouseDetails;
+      const processed = await processImage(spouseData);
       spouse = new Person(processed);
       await spouse.save({ session });
-      user.spouses.push({ spouse: spouse._id, status: "married" });
-      spouse.spouses.push({ spouse: user._id, status: "married" });
-      await spouse.save({ session });
+
+      user.spouses.push({
+        spouse: spouse._id,
+        fromDate,
+        toDate: toDate || "present",
+        status: status || "married",
+      });
+
+      spouse.spouses.push({
+        spouse: user._id,
+        fromDate,
+        toDate: toDate || "present",
+        status: status || "married",
+      });
+
+      await Promise.all([user.save({ session }), spouse.save({ session })]);
     }
 
     if (Array.isArray(selectedKids)) {
@@ -792,67 +810,11 @@ export const buildTree = async (req, res) => {
 
     await user.save({ session });
 
-    const getBuiltTree = async (id) => {
-      try {
-        const visited = new Map();
-
-        const populateFlat = async (personId) => {
-          if (!personId) return;
-          const key = personId.toString();
-          if (visited.has(key)) return;
-
-          const person = await Person.findById(personId)
-            .lean()
-            .select("-__v -createdAt -updatedAt");
-
-          if (!person) return;
-          visited.set(key, {
-            ...person,
-            father: person.father,
-            mother: person.mother,
-            childrens: person.childrens,
-            spouses: person.spouses,
-          });
-
-          if (person.father) await populateFlat(person.father);
-          if (person.mother) await populateFlat(person.mother);
-          await Promise.all(
-            (person.childrens || []).map((c) => populateFlat(c))
-          );
-          await Promise.all(
-            (person.spouses || []).map((s) => populateFlat(s?.spouse))
-          );
-        };
-
-        await populateFlat(id);
-
-        const people = Object.fromEntries(visited);
-        const root = people[id];
-
-        const builtTree = {
-          people,
-          tree: {
-            _id: id,
-            father: root?.father || null,
-            mother: root?.mother || null,
-            childrens: root?.childrens || [],
-            spouses: (root?.spouses || []).map((s) => s?.spouse),
-          },
-        };
-
-        return builtTree;
-      } catch (err) {
-        logger.error("Error in getting full family tree", err);
-      }
-    };
-    const newTree = await getBuiltTree(user._id);
-
     await session.commitTransaction();
     res.status(200).json({
       success: true,
       data: {
         user,
-        tree: newTree,
       },
     });
   } catch (err) {

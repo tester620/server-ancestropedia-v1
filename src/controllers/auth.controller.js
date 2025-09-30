@@ -64,8 +64,8 @@ export const signup = async (req, res) => {
     const otp = await sendVerificationMail(user);
     user.verificationToken = otp;
     await user.save();
-    await sendWelcomeMail(user);
-    await createRootFolderPrivate(user);
+    sendWelcomeMail(user);
+    createRootFolderPrivate(user);
     return res.status(201).json({
       message: "Account Created!",
       data: user,
@@ -133,7 +133,7 @@ export const login = async (req, res) => {
         code: "ACCOUNT_NOT_VERIFIED",
         message:
           "Kindly verify your account before logging in. Verification mail has been sent.",
-      }); 
+      });
     }
     const isValid = await bcrypt.compare(password, user?.password);
 

@@ -6,14 +6,6 @@ import { sendWelcomeMail } from "../utils/helper.js";
 import { createRootFolderPrivate } from "../controllers/folder.controller.js";
 dotenv.config();
 
-import passport from "passport";
-import { Strategy as GoogleStrategy } from "passport-google-oauth20";
-import User from "../models/user.model.js";
-import dotenv from "dotenv";
-import { sendWelcomeMail } from "../utils/helper.js";
-import { createRootFolderPrivate } from "../controllers/folder.controller.js";
-dotenv.config();
-
 passport.use(
   new GoogleStrategy(
     {

@@ -72,7 +72,7 @@ export const getMyFolders = async (req, res) => {
       parentFolderId: null,
     })
       .skip(skip)
-      .limit(limit)
+      .limit(limit);
 
     const totalDocs = await Folder.countDocuments({
       createdBy: req.user._id,
@@ -196,7 +196,7 @@ export const getFolderData = async (req, res) => {
 
     const existingFolders = await Folder.find({ parentFolderId: folderId });
 
-    const posts = await Post.find({parentFolderId:folderId});
+    const posts = await Post.find({ parentFolderId: folderId });
     return res.status(200).json({
       message: "Folder data fetched succesfully",
       data: {
@@ -238,22 +238,27 @@ export const removeFolder = async (req, res) => {
     let storageUsed = 0;
     files.forEach((item) => (storageUsed += item.size));
 
-    const parentPrivateFolders = await PrivateFolder.find({ userId: req.user._id });
+    const parentPrivateFolders = await PrivateFolder.find({
+      userId: req.user._id,
+    });
     const parentPrivateFolderIds = parentPrivateFolders.map((f) => f._id);
 
     const foldersCount =
       (await Folder.countDocuments({ createdBy: req.user._id })) +
-      (await PrivateNestedFolder.countDocuments({ parentFolderId: { $in: parentPrivateFolderIds } }));
+      (await PrivateNestedFolder.countDocuments({
+        parentFolderId: { $in: parentPrivateFolderIds },
+      }));
 
-      const updatedMemory = {
-        storageUsed,
-        foldersCount,
-        fileStored: files.length,
-      }
+    const updatedMemory = {
+      storageUsed,
+      foldersCount,
+      fileStored: files.length,
+    };
 
-    return res
-      .status(202)
-      .json({ message: "Folder and its posts deleted successfully",data:updatedMemory});
+    return res.status(202).json({
+      message: "Folder and its posts deleted successfully",
+      data: updatedMemory,
+    });
   } catch (error) {
     logger.error("Error in removing the folder", error);
     return res.status(500).json({ message: "Internal Server Error" });
@@ -440,9 +445,9 @@ export const createInFolder = async (req, res) => {
       newPost.fileId = uploadRes.fileId;
     }
     if (fileUrl) newPost.fileUrl = fileUrl;
-    newPost.parentFolderId = folderId; 
+    newPost.parentFolderId = folderId;
     await newPost.save();
-    
+
     await folder.save();
     return res.status(201).json({
       message: "New post Created",
@@ -689,17 +694,18 @@ export const createPrivatePosts = async (req, res) => {
 };
 
 export const createRootFolderPrivate = async (user) => {
-  const { userId } = user._id;
+  const userId  = user._id;
   try {
     if (userId) {
       const res = await PrivateFolder.findOne({ userId });
+      console.log("Found,", res);
       if (!res) {
         const newFolder = new PrivateFolder({ userId });
         await newFolder.save();
       }
     }
   } catch (error) {
-    logger.error("Error in xreating root folder", error);
+    logger.error("Error in creating root private folder", error);
   }
 };
 
@@ -741,22 +747,27 @@ export const removePrivateFolder = async (req, res) => {
     let storageUsed = 0;
     files.forEach((item) => (storageUsed += item.size));
 
-    const parentPrivateFolders = await PrivateFolder.find({ userId: req.user._id });
+    const parentPrivateFolders = await PrivateFolder.find({
+      userId: req.user._id,
+    });
     const parentPrivateFolderIds = parentPrivateFolders.map((f) => f._id);
 
     const foldersCount =
       (await Folder.countDocuments({ createdBy: req.user._id })) +
-      (await PrivateNestedFolder.countDocuments({ parentFolderId: { $in: parentPrivateFolderIds } }));
+      (await PrivateNestedFolder.countDocuments({
+        parentFolderId: { $in: parentPrivateFolderIds },
+      }));
 
-      const updatedMemory = {
-        storageUsed,
-        foldersCount,
-        fileStored: files.length,
-      }
+    const updatedMemory = {
+      storageUsed,
+      foldersCount,
+      fileStored: files.length,
+    };
 
-    return res
-      .status(202)
-      .json({ message: "Private Folder and its posts deleted successfully",data:updatedMemory});
+    return res.status(202).json({
+      message: "Private Folder and its posts deleted successfully",
+      data: updatedMemory,
+    });
   } catch (error) {
     logger.error("Error in removing the private folder", error);
     return res.status(500).json({
@@ -911,8 +922,8 @@ export const uploadPrivateTextFile = async (req, res) => {
   }
 };
 
-export const editPrivateTextContent = async(req,res)=>{
-  const {content,postId} = req.body;
+export const editPrivateTextContent = async (req, res) => {
+  const { content, postId } = req.body;
   try {
     if (!mongoose.isValidObjectId(postId)) {
       return res.status(400).json({ message: "Invalid Post Id" });
@@ -943,7 +954,7 @@ export const editPrivateTextContent = async(req,res)=>{
     logger.error("Error in editing the post", error);
     return res.status(500).json({ message: "Internal Server Error" });
   }
-}
+};
 
 export const editPrivatePost = async (req, res) => {
   const { postId, name } = req.body;
@@ -1091,7 +1102,7 @@ export const publicFolderDetails = async (req, res) => {
       return res.status(403).json({ message: "Unauthorised" });
     }
 
-    const posts = await Post.find({parentFolderId:folderId})
+    const posts = await Post.find({ parentFolderId: folderId });
 
     const postCount = posts.length;
     const totalSize = posts.reduce((sum, post) => sum + post.size, 0);

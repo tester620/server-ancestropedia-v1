@@ -32,6 +32,10 @@ const userSchema = new mongoose.Schema(
     },
     tokens: {
       type: Number,
+      default: 0,
+    },
+    allotedTokens: {
+      type: Number,
       default: 20,
     },
     gender: {

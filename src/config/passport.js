@@ -20,7 +20,7 @@ passport.use(
 
         const nameParts = profile.displayName?.split(" ") || [];
         const firstName = nameParts[0] || "";
-        const lastName = nameParts.slice(1).join(" ") || "";
+        const lastName = nameParts.slice(1).join(" ") || " ";
 
         const profilePicture = profile.photos?.[0]?.value || "";
 

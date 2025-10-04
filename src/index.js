@@ -5,6 +5,7 @@ import { connectDb } from "./utils/db.js";
 import cookieParser from "cookie-parser";
 import "./config/passport.js";
 import { redis } from "./config/redis.js";
+import "./utils/test.smtp.js";
 
 import { protectRoute } from "./middleware/auth.middleware.js";
 import {

@@ -5,9 +5,9 @@ import { connectDb } from "./utils/db.js";
 import cookieParser from "cookie-parser";
 import "./config/passport.js";
 import { redis } from "./config/redis.js";
-import "./utils/test.smtp.js";
 
 import { protectRoute } from "./middleware/auth.middleware.js";
+import "./utils/test.smtp.js";
 import {
   authRoutes,
   folderRoutes,
@@ -32,7 +32,14 @@ dotenv.config();
 const app = express();
 
 const corsOptions = {
-  origin: ["http://localhost:3000", "https://ancestropedia.vercel.app","http://ancestropedia.com","https://ancestropedia.com"],
+  origin: [
+    "http://localhost:3000",
+    "https://ancestropedia.vercel.app",
+    "http://ancestropedia.com",
+    "http://www.ancestropedia.com",
+    "https://www.ancestropedia.com",
+    "https://ancestropedia.com",
+  ],
   credentials: true,
 };
 

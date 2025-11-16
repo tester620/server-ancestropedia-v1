@@ -253,6 +253,34 @@ export const matchPerson = async (req, res) => {
   }
 };
 
+/**
+ * Get related persons (father, mother, siblings, kids, or spouses) of a given person
+ * @route GET /api/tree/related
+ * @group Tree
+ * @param {string} userId.query.required - ID of the person whose related members are to be fetched
+ * @param {string} relation.query.required - Type of relation to fetch (father, mother, siblings, kids, spouses)
+ * @returns {object} 200 - Successfully fetched related persons
+ * @returns {array<object>} 200.related - Array of related person objects
+ * @returns {object} 400 - Invalid relation type
+ * @returns {object} 404 - Person not found
+ * @returns {object} 500 - Internal Server Error
+ * @example request - Example query
+ * /api/tree/related?userId=66f1a36b8b50c3c176d56b4e&relation=siblings
+ * @example response - 200
+ * {
+ *   "related": [
+ *     {
+ *       "_id": "66f1a36b8b50c3c176d56b4f",
+ *       "firstName": "Jane",
+ *       "lastName": "Doe",
+ *       "gender": "female",
+ *       "birthDate": "1982-05-10",
+ *       "residenceCity": "New York"
+ *     }
+ *   ]
+ * }
+ */
+
 export const getRelatedPerson = async (req, res) => {
   const { userId: personId, relation } = req.query;
 
@@ -293,6 +321,44 @@ export const getRelatedPerson = async (req, res) => {
     res.status(500).json({ message: "Internal Server Error" });
   }
 };
+
+/**
+ * Get the full family tree of a person, including parents, children, and spouses
+ * @route GET /api/tree/full
+ * @group Tree
+ * @param {string} id.query.required - Root person ID for which the full family tree should be fetched
+ * @returns {object} 200 - Family tree fetched successfully
+ * @returns {object} 200.data.people - Flat map of all persons in the tree by ID
+ * @returns {object} 200.data.tree - Minimal tree structure showing the root person’s father, mother, children, and spouses
+ * @returns {object} 404 - Person not found
+ * @returns {object} 500 - Internal Server Error
+ * @example request - Example query
+ * /api/tree/full?id=66f1a36b8b50c3c176d56b4e
+ * @example response - 200
+ * {
+ *   "message": "Tree fetched successfully",
+ *   "data": {
+ *     "people": {
+ *       "66f1a36b8b50c3c176d56b4e": {
+ *         "_id": "66f1a36b8b50c3c176d56b4e",
+ *         "firstName": "John",
+ *         "lastName": "Doe",
+ *         "father": "66f1a36b8b50c3c176d56b4f",
+ *         "mother": "66f1a36b8b50c3c176d56b50",
+ *         "childrens": ["66f1a36b8b50c3c176d56b51"],
+ *         "spouses": ["66f1a36b8b50c3c176d56b52"]
+ *       }
+ *     },
+ *     "tree": {
+ *       "_id": "66f1a36b8b50c3c176d56b4e",
+ *       "father": "66f1a36b8b50c3c176d56b4f",
+ *       "mother": "66f1a36b8b50c3c176d56b50",
+ *       "childrens": ["66f1a36b8b50c3c176d56b51"],
+ *       "spouses": ["66f1a36b8b50c3c176d56b52"]
+ *     }
+ *   }
+ * }
+ */
 
 export const getFullFamilyTree = async (req, res) => {
   try {
@@ -348,6 +414,42 @@ export const getFullFamilyTree = async (req, res) => {
     res.status(500).json({ error: "Internal Server Error" });
   }
 };
+
+/**
+ * Submit a request to update details of a person
+ * @route POST /api/tree/person-update-request
+ * @group Tree
+ * @param {object} updatedData.body.required - Updated person data with proof
+ * @param {string} updatedData.userId.required - ID of the person to update
+ * @param {string} updatedData.proof.required - Proof supporting the requested update
+ * @param {string} [updatedData.firstName] - Updated first name
+ * @param {string} [updatedData.lastName] - Updated last name
+ * @param {string} [updatedData.fullName] - Updated full name
+ * @param {string} [updatedData.birthDate] - Updated birth date
+ * @param {string} [updatedData.toDate] - Updated date of death / toDate
+ * @param {string} [updatedData.birthCity] - Updated birth city
+ * @param {string} [updatedData.birthState] - Updated birth state
+ * @param {string} [updatedData.birthCountry] - Updated birth country
+ * @param {string} [updatedData.residenceCity] - Updated residence city
+ * @param {string} [updatedData.residenceState] - Updated residence state
+ * @param {string} [updatedData.residenceCountry] - Updated residence country
+ * @param {string} [updatedData.occupation] - Updated occupation
+ * @param {string} [updatedData.gender] - Updated gender
+ * @param {boolean} [updatedData.living] - Updated living status
+ * @param {string} [updatedData.profileImage] - Updated profile image URL
+ * @returns {object} 201 - Person update request sent successfully
+ * @returns {object} 400 - Bad request, missing required fields
+ * @returns {object} 404 - Person not found
+ * @returns {object} 500 - Internal Server Error
+ * @example request - Example body
+ * {
+ *   "updatedData": {
+ *     "userId": "66f1a36b8b50c3c176d56b4e",
+ *     "firstName": "John",
+ *     "proof": "https://example.com/proof.jpg"
+ *   }
+ * }
+ */
 
 export const personUpdateRequest = async (req, res) => {
   const { updatedData } = req.body;
@@ -436,6 +538,40 @@ export const updateProfile = async (req, res) => {
   } catch (error) {}
 };
 
+/**
+ * Create a new person record
+ * @route POST /api/tree/create-person
+ * @group Tree
+ * @param {object} personData.body.required - Data of the new person to create
+ * @param {string} personData.firstName.required - First name of the person
+ * @param {string} [personData.lastName] - Last name of the person
+ * @param {string} [personData.fullName] - Full name of the person
+ * @param {string} [personData.birthDate] - Birth date
+ * @param {string} [personData.toDate] - Date of death / toDate
+ * @param {string} [personData.birthCity] - Birth city
+ * @param {string} [personData.birthState] - Birth state
+ * @param {string} [personData.birthCountry] - Birth country
+ * @param {string} [personData.residenceCity] - Residence city
+ * @param {string} [personData.residenceState] - Residence state
+ * @param {string} [personData.residenceCountry] - Residence country
+ * @param {string} [personData.occupation] - Occupation
+ * @param {string} [personData.gender] - Gender
+ * @param {boolean} [personData.living] - Living status
+ * @param {string} [personData.profileImage] - Profile image URL
+ * @returns {object} 201 - Person created successfully
+ * @returns {object} 400 - First name is required
+ * @returns {object} 500 - Internal Server Error
+ * @example request - Example body
+ * {
+ *   "personData": {
+ *     "firstName": "John",
+ *     "lastName": "Doe",
+ *     "birthDate": "1980-05-15",
+ *     "residenceCity": "New York"
+ *   }
+ * }
+ */
+
 export const createPerson = async (req, res) => {
   const { personData } = req.body;
   try {
@@ -452,6 +588,36 @@ export const createPerson = async (req, res) => {
     return res.status(500).json({ message: "Internal Server Error" });
   }
 };
+
+/**
+ * Unlock a user's family tree for 30 days using tokens
+ * @route POST /api/tree/unlock
+ * @group Tree
+ * @param {string} treeId.body.required - ID of the tree to unlock
+ * @security BearerAuth
+ * @returns {object} 200 - Tree unlocked or access renewed successfully
+ * @returns {object} data - Access details of the unlocked tree
+ * @returns {boolean} deducted - Whether tokens were deducted for this action
+ * @returns {number} expiresAt - Expiration timestamp of the unlocked access
+ * @returns {object} 400 - Not enough tokens to unlock the tree
+ * @returns {object} 500 - Internal Server Error
+ * @example request - Example body
+ * {
+ *   "treeId": "66f1a36b8b50c3c176d56b4e"
+ * }
+ * @example response - Successful unlock
+ * {
+ *   "message": "Tree unlocked",
+ *   "data": {
+ *     "_id": "66f1a36b8b50c3c176d56b4f",
+ *     "userId": "66f1a36b8b50c3c176d56b4d",
+ *     "treeId": "66f1a36b8b50c3c176d56b4e",
+ *     "grantedAt": "2025-10-09T05:00:00.000Z",
+ *     "expiresAt": "2025-11-08T05:00:00.000Z"
+ *   },
+ *   "deducted": true
+ * }
+ */
 
 export const unlockTree = async (req, res) => {
   const { treeId } = req.body;
@@ -509,6 +675,33 @@ export const unlockTree = async (req, res) => {
   }
 };
 
+/**
+ * Get all family trees the user has unlocked or accessed
+ * @route GET /api/tree/accessed
+ * @group Tree
+ * @security BearerAuth
+ * @returns {object} 200 - List of accessed trees fetched successfully
+ * @returns {array} data - Array of tree access objects with populated tree details
+ * @returns {object} 500 - Internal Server Error
+ * @example response
+ * {
+ *   "message": "Accessed trees fetched",
+ *   "data": [
+ *     {
+ *       "_id": "66f1a36b8b50c3c176d56b4f",
+ *       "userId": "66f1a36b8b50c3c176d56b4d",
+ *       "treeId": {
+ *         "_id": "66f1a36b8b50c3c176d56b4e",
+ *         "firstName": "John",
+ *         "lastName": "Doe"
+ *       },
+ *       "grantedAt": "2025-10-09T05:00:00.000Z",
+ *       "expiresAt": "2025-11-08T05:00:00.000Z"
+ *     }
+ *   ]
+ * }
+ */
+
 export const getAccessedTree = async (req, res) => {
   try {
     const trees = await TreeAccess.find({ userId: req.user._id }).populate(
@@ -526,6 +719,48 @@ export const getAccessedTree = async (req, res) => {
     });
   }
 };
+
+/**
+ * Builds or updates a family tree for a user including parents, spouse, children, and siblings.
+ *
+ * Handles:
+ *  - Creating or updating the current user node
+ *  - Associating parents, spouse, kids, and siblings
+ *  - Processing profile images using ImageKit if base64 data is provided
+ *  - Maintaining proper relationships between family members
+ *  - Updating counts like `childrenCount` and `haveKids`
+ *
+ * @route POST /api/tree/build
+ * @access Protected (requires authenticated user)
+ *
+ * @param {Object} req.body
+ * @param {Object} [req.body.fatherDetails] - Data for creating a new father
+ * @param {Object} [req.body.selectedFather] - Existing father to associate
+ * @param {Object} [req.body.motherDetails] - Data for creating a new mother
+ * @param {Object} [req.body.selectedMother] - Existing mother to associate
+ * @param {Object} req.body.personalDetails - Details of the current user
+ * @param {Object} [req.body.selectedUser] - Existing user to update instead of creating new
+ * @param {Object} [req.body.spouseDetails] - Details of a new spouse
+ * @param {Object} [req.body.selectedSpouse] - Existing spouse to associate
+ * @param {Array<Object>} [req.body.kidsDetails] - Details of new children
+ * @param {Array<Object>} [req.body.selectedKids] - Existing children to associate
+ * @param {Array<Object>} [req.body.siblingsDetails] - Details of new siblings
+ * @param {Array<Object>} [req.body.selectedSiblings] - Existing siblings to associate
+ * @param {Object} [req.body.maritalData] - Marital information for spouse
+ *
+ * @returns {Object} 200 - JSON object containing updated user and family tree
+ * @returns {Object} 500 - JSON object with error message in case of failure
+ *
+ * @example
+ * POST /api/tree/build
+ * {
+ *   "personalDetails": { "firstName": "John", "lastName": "Doe", "gender": "male" },
+ *   "fatherDetails": { "firstName": "Robert", "lastName": "Doe" },
+ *   "motherDetails": { "firstName": "Jane", "lastName": "Doe" },
+ *   "spouseDetails": { "firstName": "Alice", "lastName": "Doe", "gender": "female" },
+ *   "kidsDetails": [{ "firstName": "Emma", "gender": "female" }]
+ * }
+ */
 
 export const buildTree = async (req, res) => {
   const {
@@ -825,6 +1060,41 @@ export const buildTree = async (req, res) => {
   }
 };
 
+/**
+ * Get the authenticated user's full family tree
+ * @route GET /api/tree/my-tree
+ * @group Tree
+ * @security BearerAuth
+ * @returns {object} 200 - Family tree fetched successfully
+ * @returns {object} data - Object containing all people and tree structure
+ * @returns {object} tree - Root person with father, mother, childrens, and spouses
+ * @returns {object} 500 - Internal Server Error
+ * @example response
+ * {
+ *   "message": "Tree fetched successfully",
+ *   "data": {
+ *     "people": {
+ *       "64f1a36b8b50c3c176d56b4d": {
+ *         "_id": "64f1a36b8b50c3c176d56b4d",
+ *         "firstName": "John",
+ *         "lastName": "Doe",
+ *         "father": "64f1a36b8b50c3c176d56b4e",
+ *         "mother": "64f1a36b8b50c3c176d56b4f",
+ *         "childrens": ["64f1a36b8b50c3c176d56b50"],
+ *         "spouses": [{"spouse": "64f1a36b8b50c3c176d56b51", "status": "married"}]
+ *       }
+ *     },
+ *     "tree": {
+ *       "_id": "64f1a36b8b50c3c176d56b4d",
+ *       "father": "64f1a36b8b50c3c176d56b4e",
+ *       "mother": "64f1a36b8b50c3c176d56b4f",
+ *       "childrens": ["64f1a36b8b50c3c176d56b50"],
+ *       "spouses": ["64f1a36b8b50c3c176d56b51"]
+ *     }
+ *   }
+ * }
+ */
+
 export const getMyFamilyTree = async (req, res) => {
   try {
     const id = req.user._id;
@@ -877,5 +1147,147 @@ export const getMyFamilyTree = async (req, res) => {
   } catch (err) {
     logger.error("Error in getting my family tree", err);
     res.status(500).json({ error: "Internal Server Error" });
+  }
+};
+
+/**
+ * Add a new person and link them to the authenticated user's family tree
+ * @route POST /api/tree/add-person
+ * @group Tree
+ * @security BearerAuth
+ * @param {string} relation.body.required - Relation of the new person to the user (father, mother, child, spouse)
+ * @param {string} userId.body.required - ID of the existing person in the tree
+ * @param {object} newData.body.required - Details of the new person
+ * @param {string} newData.firstName.required - First name of the new person
+ * @param {string} [newData.lastName] - Last name of the new person
+ * @param {string} [newData.gender] - Gender of the new person
+ * @param {string} [newData.profileImage] - URL of profile image
+ * @param {string} [newData.maritalStatus] - Marital status (for spouse)
+ * @param {string} [newData.marriageDate] - Marriage date (for spouse)
+ * @param {string} [newData.divorceDate] - Divorce date (for spouse)
+ * @param {string} [newData.widowedDate] - Widowed date (for spouse)
+ * @returns {object} 200 - Relation added successfully
+ * @returns {object} person - Newly created person object
+ * @returns {object} 400 - Missing required fields or invalid relation
+ * @returns {object} 404 - Person not found
+ * @returns {object} 500 - Internal Server Error
+ * @example request - Example body
+ * {
+ *   "relation": "father",
+ *   "userId": "64f1a36b8b50c3c176d56b4d",
+ *   "newData": {
+ *     "firstName": "Robert",
+ *     "lastName": "Doe",
+ *     "gender": "male"
+ *   }
+ * }
+ * @example response - Successful addition
+ * {
+ *   "message": "Relation added successfully",
+ *   "person": {
+ *     "_id": "64f1a36b8b50c3c176d56b52",
+ *     "firstName": "Robert",
+ *     "lastName": "Doe",
+ *     "gender": "male",
+ *     "childrens": ["64f1a36b8b50c3c176d56b4d"],
+ *     "spouses": []
+ *   }
+ * }
+ */
+
+export const addPerson = async (req, res) => {
+  try {
+    const { relation, newData, userId } = req.body;
+    console.log(relation);
+    if (!relation || !newData?.firstName || !userId) {
+      return res
+        .status(400)
+        .json({ message: "Relation, firstName and userId are required" });
+    }
+
+    const allowedRelations = ["father", "mother", "child", "spouse"];
+    if (!allowedRelations.includes(relation.toLowerCase())) {
+      return res.status(400).json({ message: "Invalid relation" });
+    }
+
+    const allowedStatuses = ["married", "divorced", "widowed"];
+    if (relation.toLowerCase() === "spouse") {
+      if (
+        newData.maritalStatus &&
+        !allowedStatuses.includes(newData.maritalStatus.toLowerCase())
+      ) {
+        return res.status(400).json({ message: "Invalid spouse status" });
+      }
+    }
+
+    if (
+      relation.toLowerCase() === "father" &&
+      newData.gender?.toLowerCase() !== "male"
+    ) {
+      return res.status(400).json({ message: "Father must be male" });
+    }
+    if (
+      relation.toLowerCase() === "mother" &&
+      newData.gender?.toLowerCase() !== "female"
+    ) {
+      return res.status(400).json({ message: "Mother must be female" });
+    }
+
+    const person = await Person.findById(userId);
+    if (!person) return res.status(404).json({ message: "Person not found" });
+
+    if (relation.toLowerCase() === "father" && person.father)
+      return res.status(400).json({ message: "Father already exists" });
+    if (relation.toLowerCase() === "mother" && person.mother)
+      return res.status(400).json({ message: "Mother already exists" });
+
+    if (!newData.profileImage)
+      newData.profileImage =
+        "https://ik.imagekit.io/ancestor/Frame%2025878.png";
+
+    const createdPerson = await Person.create(newData);
+
+    if (relation.toLowerCase() === "father") {
+      person.father = createdPerson._id;
+      createdPerson.childrens.push(person._id);
+    } else if (relation.toLowerCase() === "mother") {
+      person.mother = createdPerson._id;
+      createdPerson.childrens.push(person._id);
+    } else if (relation.toLowerCase() === "child") {
+      person.childrens.push(createdPerson._id);
+      if (person.gender?.toLowerCase() === "male")
+        createdPerson.father = person._id;
+      if (person.gender?.toLowerCase() === "female")
+        createdPerson.mother = person._id;
+    } else if (relation.toLowerCase() === "spouse") {
+      const spouseData = {
+        spouse: createdPerson._id,
+        status: newData?.maritalStatus.toLowerCase() || "married",
+        fromDate: newData?.marriageDate,
+        toDate: newData?.divorceDate || null,
+      };
+      person.spouses.push(spouseData);
+      createdPerson.spouses.push({
+        spouse: person._id,
+        status: newData.maritalStatus.toLowerCase() || "married",
+        fromDate: newData?.marriageDate,
+        toDate: newData?.divorceDate || null,
+      });
+      if (newData?.maritalStatus?.toLowerCase() === "widowed") {
+        person.toDate =
+          newData?.divorceDate || newData?.widowedDate || person?.toDate;
+      }
+    }
+
+    await person.save();
+    await createdPerson.save();
+
+    return res
+      .status(200)
+      .json({ message: "Relation added successfully", person: createdPerson });
+  } catch (error) {
+    return res
+      .status(500)
+      .json({ message: "Server error", error: error.message });
   }
 };

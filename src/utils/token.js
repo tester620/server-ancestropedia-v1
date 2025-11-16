@@ -10,7 +10,9 @@ export const generateToken = (userId, res) => {
     httpOnly:true,
     secure: true,
     path: "/",
-    domain: ".ancestropedia.com", 
+    // domain: ".ancestropedia.com", 
+    domain: ".vittratech.site", 
+    
   });
   return token;
 };

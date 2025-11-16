@@ -13,6 +13,7 @@ import addressRoutes from "./adress.route.js";
 import eventRoutes from "./event.route.js";
 import tokenRoutes from "./token.request.route.js";
 import newsLetterRoute from "./newsletter.route.js";
+import debugRoutes from "./debug.route.js"
 
 export {
   reportRoutes,
@@ -30,4 +31,5 @@ export {
   tokenRoutes,
   addressRoutes,
   eventRoutes,
+  debugRoutes
 };

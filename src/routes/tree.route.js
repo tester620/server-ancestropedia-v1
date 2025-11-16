@@ -9,6 +9,7 @@ import {
   getAccessedTree,
   buildTree,
   getMyFamilyTree,
+  addPerson,
 } from "../controllers/tree.controller.js";
 
 const router = express.Router();
@@ -22,5 +23,6 @@ router.get("/myTree", getMyFamilyTree);
 router.post("/unlock", unlockTree);
 router.post("/build", buildTree);
 router.get("/unlocked", getAccessedTree);
+router.post("/addPerson", addPerson);
 
 export default router;

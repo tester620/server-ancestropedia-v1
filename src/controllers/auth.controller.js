@@ -83,7 +83,7 @@ export const logout = (_, res) => {
     res.cookie("jwt", "", {
       expires: new Date(0),
       path: "/",
-      domain: ".ancestropedia.com",
+      domain: ".vittratech.site",
       httpOnly: true,
       sameSite: "None",
       secure: true,

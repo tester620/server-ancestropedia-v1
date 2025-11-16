@@ -24,6 +24,7 @@ import {
   eventRoutes,
   tokenRoutes,
   newsLetterRoute,
+  debugRoutes
 } from "./routes/routes.js";
 import logger from "./config/logger.js";
 import { limiter } from "./utils/limiting.js";
@@ -70,6 +71,8 @@ app.use("/api/user/request", protectRoute, requestRoutes);
 app.use("/api/user/token", protectRoute, tokenRoutes);
 app.use("/api/user/notification", protectRoute, notificationRoutes);
 app.use("/api/user/event", protectRoute, eventRoutes);
+app.use("/api/dev", debugRoutes);
+
 
 app.listen(7777, async () => {
   await connectDb();

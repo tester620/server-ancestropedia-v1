@@ -39,6 +39,9 @@ const corsOptions = {
     "http://www.ancestropedia.com",
     "https://www.ancestropedia.com",
     "https://ancestropedia.com",
+    "https://project-stelios.vittratech.site",
+    "http://project-stelios.vittratech.site",
+ 
   ],
   credentials: true,
 };
